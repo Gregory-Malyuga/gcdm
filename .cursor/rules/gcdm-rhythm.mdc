@@ -1,0 +1,17 @@
+---
+description: GCDM development rhythm and hard constraints
+alwaysApply: true
+---
+
+# GCDM rhythm
+
+- Answer the user in Russian.
+- Follow [PLAN.md](PLAN.md): clean-room rewrite, ~80% AyijeCDM features, no resource/cast bars in v1.
+- Never copy code from `../Ayije_CDM` (All Rights Reserved). Feature checklist only.
+- Target `## Interface: 110207` until an explicit Midnight bump.
+- One module change at a time; after each Skin/Groups change, expect in-game `/reload` verification.
+- Apply settings only through `GCDM:Refresh(scope)` (`STYLE`, `LAYOUT`, `GLOW`, `GROUPS`). Options write DB then Refresh.
+- Centralize Blizzard viewer hooks in `ViewerRegistry` / `Skin.Apply` — no scattered `hooksecurefunc`.
+- No idle `OnUpdate`; stop tickers when inactive.
+- Keep `PROJECT_INDEX.md` local (gitignored); update it when structure changes.
+- Do not commit secrets, WTF SavedVariables, or zip dumps.
