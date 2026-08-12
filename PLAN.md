@@ -2,7 +2,9 @@
 
 **Статус:** утверждён к реализации  
 **Цель:** лёгкий в поддержке аддон-скин/расширение Blizzard Cooldown Manager  
-**Целевая версия клиента:** Retail `11.2.7` (`## Interface: 110207`), структура готова к последующему bump TOC  
+**Целевая версия клиента:** Retail `12.1.0` (`## Interface: 120100`)  
+**API-контекст:** Midnight — Secret Values, Duration Objects; в 12.1 — AuraContainer / AuraButton для кастомных аур  
+
 **Референс фич:** AyijeCDM 3.88 (discontinued)  
 **Юридически:** AyijeCDM — All Rights Reserved. **Код не копируем.** Чистый рерайт по списку возможностей и публичному Blizzard API.
 
@@ -129,7 +131,8 @@ flowchart TB
 2. **Никаких скрытых OnUpdate** без idle-stop; тики только пока есть активные анимации/фейды.  
 3. **Refresh(scope)** — единственная точка применения настроек; опции только пишут в DB и зовут Refresh.  
 4. **Viewer hooks** — централизованно в `ViewerRegistry` / `Skin.Apply(frame)`, не размазывать `hooksecurefunc` по файлам.  
-5. **Secret Values / Duration Objects** — сразу закладывать ветки API 12.x за feature-detect, на 11.2.7 использовать текущие API.  
+5. **Secret Values / Duration Objects** — основной путь с первого дня (`SetCooldownFromDurationObject`, без арифметики по secret). Для кастомных аур в 12.1 — `AuraContainer` / `AuraButton`, не сырой CLEU/UnitAura для combat-логики.  
+
 6. **Не трогать** чужой All Rights Reserved код; читать Ayije только как чеклист фич.  
 7. Изменения — по одному модулю, проверка в игре после каждого: `/reload` + Essential/Utility/Buff.  
 8. `PROJECT_INDEX.md` локальный, в `.gitignore`.
@@ -175,7 +178,7 @@ GCDM/
 
 ### Фаза 0 — каркас (этот коммит = только план; дальше код)
 
-- [ ] `GCDM.toc` `Interface: 110207`
+- [ ] `GCDM.toc` `Interface: 120100`
 - [ ] `Init.lua` + AceDB + defaults-заглушка
 - [ ] `/gcdm` открывает пустой AceConfig
 - [ ] `PROJECT_INDEX.md` локально
@@ -202,7 +205,8 @@ GCDM/
 - [ ] Pixel-perfect snap
 - [ ] Combat lockdown safety
 - [ ] ruRU
-- [ ] TOC bump / feature-detect для Midnight при необходимости
+- [ ] Проверка на AuraContainer/AuraButton там, где кастомные buff groups не могут опереться только на Blizzard Buff viewers
+- [ ] Regression после патч-диффов `C_CooldownViewer` / Edit Mode
 
 ---
 
@@ -223,7 +227,8 @@ GCDM/
 |------|-----------|
 | Ломкие Blizzard mixin’ы на патче | тонкий Skin.Apply; минимум monkey-patch |
 | Taint / combat | отложенный apply через `PLAYER_REGEN_ENABLED` |
-| 11.2.7 vs Midnight API | feature-detect; отдельный milestone на 12.x |
+| 12.1 aura lockdown (Forbidden/Secret Aspects) | кастомные ауры только через AuraContainer/AuraButton; скин Blizzard viewers предпочтительнее сырого трекинга |
+| Duration Objects / secret cooldown values | только Blizzard duration APIs, без чтения/веток по secret numbers |
 | Желание «просто форкнуть Ayije» | запрещено лицензией; только clean-room |
 
 ---
