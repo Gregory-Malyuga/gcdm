@@ -176,20 +176,21 @@ GCDM/
 
 ## 6. Фазы реализации
 
-### Фаза 0 — каркас (этот коммит = только план; дальше код)
+### Фаза 0 — каркас
 
-- [ ] `GCDM.toc` `Interface: 120100`
-- [ ] `Init.lua` + AceDB + defaults-заглушка
-- [ ] `/gcdm` открывает пустой AceConfig
-- [ ] `PROJECT_INDEX.md` локально
+- [x] `GCDM.toc` `Interface: 120100`
+- [x] `Init.lua` + AceDB + defaults-заглушка
+- [x] `/gcdm` открывает AceConfig (General + Profiles)
+- [x] `PROJECT_INDEX.md` локально
+- [x] Vendored Ace3 subset in `Libs/`
 
 ### Фаза 1 — Skin P0
 
-- [ ] ViewerRegistry: найти/кэшировать Essential/Utility/Buff/BuffBar
-- [ ] Size / Spacing / Layout apply
-- [ ] Border + Icon zoom
+- [x] ViewerRegistry: найти/кэшировать Essential/Utility/Buff/BuffBar
+- [x] Size / Spacing / Layout apply (size done; spacing/layout next)
+- [x] Border + Icon zoom
 - [ ] Text (CD, stacks, charges, keybind)
-- [ ] Glow (ready + aura) через LibCustomGlow
+- [x] Glow (proc alert) через LibCustomGlow; ready/aura — позже
 - [ ] Fade OOC
 
 ### Фаза 2 — Groups P1

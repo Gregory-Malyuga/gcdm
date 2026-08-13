@@ -1,0 +1,31 @@
+local ADDON_NAME, ns = ...
+local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
+
+GCDM.CONST = {
+	FONT_PATH = "Fonts\\FRIZQT__.TTF",
+	FONT_OUTLINE = "OUTLINE",
+	TEX_WHITE8X8 = "Interface\\Buttons\\WHITE8X8",
+	TEX_CDM_SWIPE = "Interface\\HUD\\UI-HUD-CoolDownManager-Icon-Swipe",
+	SWIPE_COLOR = { r = 0, g = 0, b = 0, a = 0.6 },
+	GCD_SPELL_ID = 61304,
+
+	VIEWERS = {
+		ESSENTIAL = "EssentialCooldownViewer",
+		UTILITY = "UtilityCooldownViewer",
+		BUFF = "BuffIconCooldownViewer",
+		BUFF_BAR = "BuffBarCooldownViewer",
+	},
+
+	REFRESH = {
+		ALL = "ALL",
+		STYLE = "STYLE",
+		LAYOUT = "LAYOUT",
+		GLOW = "GLOW",
+		GROUPS = "GROUPS",
+	},
+}
+
+local VIEWERS = GCDM.CONST.VIEWERS
+GCDM.CONST.COOLDOWN_VIEWER_NAMES = { VIEWERS.ESSENTIAL, VIEWERS.UTILITY }
+GCDM.CONST.MANAGED_VIEWER_NAMES = { VIEWERS.ESSENTIAL, VIEWERS.UTILITY, VIEWERS.BUFF }
+GCDM.CONST.ALL_VIEWER_NAMES = { VIEWERS.ESSENTIAL, VIEWERS.UTILITY, VIEWERS.BUFF, VIEWERS.BUFF_BAR }

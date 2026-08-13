@@ -1,0 +1,33 @@
+## Interface: 120100
+## Title: |cFF3bb273GCDM|r
+## Notes: Cooldown Manager skin and layout editor
+## Author: GCDM
+## Version: 0.1.0
+## SavedVariables: GCDMDB
+## OptionalDeps: SharedMedia, SharedMediaAdditionalFonts
+## DefaultState: enabled
+## Category: Combat
+## Category-ruRU: Бой
+
+Libs\embeds.xml
+Init.lua
+Core\Constants.lua
+Core\Refresh.lua
+Core\Pixel.lua
+Core\EditMode.lua
+Core\ViewerRegistry.lua
+DB\Defaults.lua
+Locales\enUS.lua
+Skin\Util.lua
+Core\Media.lua
+Skin\Layout.lua
+Skin\Position.lua
+Skin\Size.lua
+Skin\Border.lua
+Skin\Icon.lua
+Skin\Text.lua
+Skin\Glow.lua
+Skin\BuffBar.lua
+Skin\Debug.lua
+Skin\Tests.lua
+Options\Options.lua
