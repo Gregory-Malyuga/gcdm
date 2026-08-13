@@ -132,14 +132,80 @@ local function HideCooldownManagerOverlays(frame, icon)
 	end
 end
 
-local function EnsureFeedbackLayers(frame)
-	-- CooldownFlash = brief flash when ability is pressed/used.
-	local flash = frame.CooldownFlash
-	if flash then
-		flash:SetAlpha(1)
-		local base = frame:GetFrameLevel() or 0
-		flash:SetFrameLevel(base + 8)
+local function SuppressCooldownFlash(flash)
+	if not flash then
+		return
 	end
+	if flash.GCDMSuppressingFlash then
+		return
+	end
+	flash.GCDMSuppressingFlash = true
+	if flash.FlashAnim and flash.FlashAnim.Stop then
+		flash.FlashAnim:Stop()
+	end
+	if flash.SetAlpha then
+		flash:SetAlpha(0)
+	end
+	if flash.Hide then
+		flash:Hide()
+	end
+	flash.GCDMSuppressingFlash = false
+end
+
+local function HookCooldownFlash(flash)
+	if not flash or flash.GCDMFlashSuppressed then
+		return
+	end
+	flash.GCDMFlashSuppressed = true
+	SuppressCooldownFlash(flash)
+	if flash.HookScript then
+		flash:HookScript("OnShow", function(self)
+			SuppressCooldownFlash(self)
+		end)
+	end
+	if flash.Show then
+		hooksecurefunc(flash, "Show", function(self)
+			SuppressCooldownFlash(self)
+		end)
+	end
+	if flash.SetShown then
+		hooksecurefunc(flash, "SetShown", function(self, shown)
+			if shown then
+				SuppressCooldownFlash(self)
+			end
+		end)
+	end
+	if flash.SetAlpha then
+		hooksecurefunc(flash, "SetAlpha", function(self, alpha)
+			if self.GCDMSuppressingFlash then
+				return
+			end
+			if type(alpha) == "number" and alpha > 0 then
+				SuppressCooldownFlash(self)
+			end
+		end)
+	end
+	local anim = flash.FlashAnim
+	if anim and anim.Play then
+		hooksecurefunc(anim, "Play", function(self)
+			self:Stop()
+			SuppressCooldownFlash(flash)
+		end)
+	end
+end
+
+local function EnsureFeedbackLayers(frame)
+	-- Thin CD-finish flash (CooldownFlash) — suppress on icon and nested Cooldown.
+	HookCooldownFlash(frame.CooldownFlash)
+	local cd = frame.Cooldown
+	if cd then
+		HookCooldownFlash(cd.CooldownFlash)
+	end
+	local chargeCd = frame.ChargeCooldown
+	if chargeCd then
+		HookCooldownFlash(chargeCd.CooldownFlash)
+	end
+
 	local oor = frame.OutOfRange
 	if oor then
 		-- Blizzard already tints Icon via RefreshIconColor when out of range.
@@ -203,6 +269,7 @@ local function StyleCooldownSwipe(frame, db)
 	if cd.SetUseCircularEdge then
 		cd:SetUseCircularEdge(false)
 	end
+	-- No thin spinning edge / end-of-CD bling (proc SpellActivationAlert glow stays in Glow.lua).
 	if cd.SetDrawEdge then
 		cd:SetDrawEdge(false)
 	end
@@ -212,12 +279,91 @@ local function StyleCooldownSwipe(frame, db)
 	if cd.SetDrawSwipe then
 		cd:SetDrawSwipe(true)
 	end
+	if not cd.GCDMBlingSuppressed then
+		cd.GCDMBlingSuppressed = true
+		local function KillBling(self)
+			if self.GCDMKillingBling then
+				return
+			end
+			self.GCDMKillingBling = true
+			if self.SetDrawBling then
+				self:SetDrawBling(false)
+			end
+			if self.SetDrawEdge then
+				self:SetDrawEdge(false)
+			end
+			self.GCDMKillingBling = false
+		end
+		if cd.SetDrawBling then
+			hooksecurefunc(cd, "SetDrawBling", function(self, draw)
+				if draw then
+					KillBling(self)
+				end
+			end)
+		end
+		if cd.SetDrawEdge then
+			hooksecurefunc(cd, "SetDrawEdge", function(self, draw)
+				if draw then
+					KillBling(self)
+				end
+			end)
+		end
+		-- SetCooldown often restores default bling/edge from template.
+		if cd.SetCooldown then
+			hooksecurefunc(cd, "SetCooldown", KillBling)
+		end
+		if cd.SetCooldownFromDurationObject then
+			hooksecurefunc(cd, "SetCooldownFromDurationObject", KillBling)
+		end
+		if cd.Clear then
+			hooksecurefunc(cd, "Clear", KillBling)
+		end
+	end
 
 	local regions = { cd:GetRegions() }
 	for i = 1, #regions do
 		local region = regions[i]
 		if region and region.IsObjectType and region:IsObjectType("Texture") then
 			Pixel.DisableTextureSnap(region)
+			-- Hide leftover bling/edge textures if present as named children.
+			local name = region.GetName and region:GetName()
+			local drawLayer = region.GetDrawLayer and region:GetDrawLayer()
+			if (type(name) == "string" and (name:find("Bling", 1, true) or name:find("Edge", 1, true)))
+				or drawLayer == "OVERLAY"
+			then
+				-- Don't hide swipe (BACKGROUND/ARTWORK); only suppress obvious edge/bling overlays.
+				if type(name) == "string" and (name:find("Bling", 1, true) or name:find("Edge", 1, true)) then
+					region:SetAlpha(0)
+				end
+			end
+		end
+	end
+
+	-- Charge cooldown often has its own bling when a charge restores.
+	local chargeCd = frame.ChargeCooldown
+	if chargeCd and chargeCd.SetDrawBling then
+		chargeCd:SetDrawBling(false)
+		if chargeCd.SetDrawEdge then
+			chargeCd:SetDrawEdge(false)
+		end
+		if not chargeCd.GCDMBlingSuppressed then
+			chargeCd.GCDMBlingSuppressed = true
+			local function KillChargeBling(self)
+				if self.SetDrawBling then
+					self:SetDrawBling(false)
+				end
+				if self.SetDrawEdge then
+					self:SetDrawEdge(false)
+				end
+			end
+			hooksecurefunc(chargeCd, "SetDrawBling", function(self, draw)
+				if draw then
+					KillChargeBling(self)
+				end
+			end)
+			if chargeCd.SetCooldown then
+				hooksecurefunc(chargeCd, "SetCooldown", KillChargeBling)
+			end
 		end
 	end
 end

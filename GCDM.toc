@@ -1,6 +1,7 @@
 ## Interface: 120100
 ## Title: |cFF3bb273GCDM|r
 ## Notes: Cooldown Manager skin and layout editor
+## Notes-ruRU: Скин и редактор раскладки Cooldown Manager
 ## Author: GCDM
 ## Version: 0.1.0
 ## SavedVariables: GCDMDB
@@ -18,8 +19,10 @@ Core\EditMode.lua
 Core\ViewerRegistry.lua
 DB\Defaults.lua
 Locales\enUS.lua
+Locales\ruRU.lua
 Skin\Util.lua
 Core\Media.lua
+Core\SmoothBar.lua
 Skin\Layout.lua
 Skin\Position.lua
 Skin\Size.lua
@@ -30,6 +33,7 @@ Skin\Glow.lua
 Skin\BuffBar.lua
 Skin\PowerBar.lua
 Skin\AuraSlots.lua
+Skin\AuraSounds.lua
 Skin\AuraBars.lua
 Skin\Debug.lua
 Skin\Tests.lua

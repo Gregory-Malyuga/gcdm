@@ -270,8 +270,11 @@ local function EnsureColorCurve(profile)
 end
 
 local function ApplyFillColor(bar, powerType, profile, fallbackR, fallbackG, fallbackB, fallbackA)
-	local fr, fg, fb, fa = fallbackR, fallbackG, fallbackB, fallbackA or 1
-	local mode = profile.colorMode or "class"
+	local fr = fallbackR or 0.78
+	local fg = fallbackG or 0.1
+	local fb = fallbackB or 0.1
+	local fa = fallbackA or 1
+	local mode = profile and profile.colorMode or "class"
 
 	if mode == "solid" then
 		local c = profile.solidColor or {}
@@ -281,10 +284,11 @@ local function ApplyFillColor(bar, powerType, profile, fallbackR, fallbackG, fal
 		if curve then
 			local ok, color
 			if profile.curveMode == "percent" and UnitPowerPercent then
+				-- Prefer ColorCurve via UnitPowerPercent(…, curve) when API accepts it.
 				ok, color = pcall(UnitPowerPercent, "player", powerType, false, curve)
-				if (not ok or color == nil) and curve.Evaluate then
+				if not ok or color == nil then
 					local okp, pct = pcall(UnitPowerPercent, "player", powerType)
-					if okp and pct ~= nil then
+					if okp and pct ~= nil and curve.Evaluate then
 						ok, color = pcall(curve.Evaluate, curve, pct)
 					end
 				end
@@ -307,9 +311,16 @@ local function ApplyFillColor(bar, powerType, profile, fallbackR, fallbackG, fal
 		end
 	end
 
+	-- Guard against NaN / missing → keep class fallback (never force pure white unless intentional solid).
+	if type(fr) ~= "number" or type(fg) ~= "number" or type(fb) ~= "number" then
+		fr, fg, fb, fa = fallbackR or 0.78, fallbackG or 0.1, fallbackB or 0.1, fallbackA or 1
+	end
+
 	local st = bar:GetStatusBarTexture()
 	if st then
 		st:SetVertexColor(fr, fg, fb, fa)
+		st:SetAlpha(fa)
+		st:Show()
 	end
 	pcall(bar.SetStatusBarColor, bar, fr, fg, fb, fa)
 end
@@ -345,16 +356,139 @@ local function EnsureBar(parent, name)
 	bg:SetAllPoints()
 	bg:SetColorTexture(0.1, 0.1, 0.1, 0.95)
 	bar.GCDMBg = bg
-	local border = CreateFrame("Frame", nil, bar, "BackdropTemplate")
-	border:SetAllPoints()
-	border:SetFrameLevel((bar:GetFrameLevel() or 0) + 5)
-	bar.GCDMBorder = border
+	-- 4-edge pixel border (Backdrop nine-slice looks ~2px on thin bars).
+	bar.GCDMEdge = {
+		T = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+		B = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+		L = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+		R = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+	}
+	for _, tex in pairs(bar.GCDMEdge) do
+		tex:SetColorTexture(0, 0, 0, 1)
+		if Pixel.DisableTextureSnap then
+			Pixel.DisableTextureSnap(tex)
+		end
+		tex:Hide()
+	end
 	local fs = bar:CreateFontString(nil, "OVERLAY")
 	fs:SetPoint("CENTER")
 	fs:SetJustifyH("CENTER")
+	-- Must have a font before any SetText (LSM Expressway path may be missing).
+	pcall(fs.SetFont, fs, GCDM.CONST.FONT_PATH or "Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
 	bar.GCDMText = fs
 	bar.GCDMTicks = {}
 	return bar
+end
+
+local function ApplyPowerBarFont(fs, db)
+	if not fs then
+		return
+	end
+	local fontPath = (Skin.FetchFont and Skin.FetchFont(db and (db.powerBarFont or db.textFont) or "Expressway")) or GCDM.CONST.FONT_PATH
+	local fontSize = (db and db.powerBarFontSize) or 12
+	if type(fontSize) ~= "number" or fontSize < 1 then
+		fontSize = 12
+	end
+	local outlineRaw = db and db.powerBarTextOutline
+	if outlineRaw == nil then
+		outlineRaw = "OUTLINE"
+	end
+	local outline = (Skin.ResolveOutline and Skin.ResolveOutline(outlineRaw)) or outlineRaw or "OUTLINE"
+	if outline == "NONE" then
+		outline = ""
+	end
+	local ok = pcall(fs.SetFont, fs, fontPath, fontSize, outline)
+	local hasFont = ok and fs.GetFont and fs:GetFont()
+	if not hasFont then
+		pcall(fs.SetFont, fs, GCDM.CONST.FONT_PATH or "Fonts\\FRIZQT__.TTF", fontSize, outline ~= "" and outline or "OUTLINE")
+	end
+	if fs.GetFont and not fs:GetFont() then
+		pcall(fs.SetFont, fs, "Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+	end
+	return outline
+end
+
+local function SafeSetPowerText(fs, value)
+	if not fs then
+		return
+	end
+	if fs.GetFont and not fs:GetFont() then
+		ApplyPowerBarFont(fs, GCDM.GetDB and GCDM:GetDB())
+	end
+	if value == nil then
+		pcall(fs.SetText, fs, "")
+		return
+	end
+	if fs.SetTextToFit then
+		local okFit = pcall(fs.SetTextToFit, fs, value)
+		if okFit then
+			return
+		end
+	end
+	pcall(fs.SetText, fs, value)
+end
+
+local function StylePixelBorder(bar, size, r, g, b, a)
+	if not bar.GCDMEdge then
+		bar.GCDMEdge = {
+			T = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+			B = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+			L = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+			R = bar:CreateTexture(nil, "OVERLAY", nil, 7),
+		}
+		for _, tex in pairs(bar.GCDMEdge) do
+			tex:SetColorTexture(0, 0, 0, 1)
+			if Pixel.DisableTextureSnap then
+				Pixel.DisableTextureSnap(tex)
+			end
+		end
+	end
+	local edges = bar.GCDMEdge
+	-- Hide legacy backdrop if an older session created one.
+	if bar.GCDMBorder then
+		bar.GCDMBorder:Hide()
+	end
+	if not size or size <= 0 then
+		for _, tex in pairs(edges) do
+			tex:Hide()
+		end
+		return
+	end
+	-- thickness: 1 → one physical pixel (avoids Backdrop ~2px sides on short bars)
+	local t
+	if size <= 1 then
+		Pixel.Update()
+		t = Pixel.GetSize()
+		if not t or t <= 0 or t > 2 then
+			t = 1
+		end
+	else
+		t = Pixel.Snap(size)
+	end
+	edges.T:ClearAllPoints()
+	edges.T:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+	edges.T:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, 0)
+	edges.T:SetHeight(t)
+
+	edges.B:ClearAllPoints()
+	edges.B:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+	edges.B:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+	edges.B:SetHeight(t)
+
+	edges.L:ClearAllPoints()
+	edges.L:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, -t)
+	edges.L:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, t)
+	edges.L:SetWidth(t)
+
+	edges.R:ClearAllPoints()
+	edges.R:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, -t)
+	edges.R:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, t)
+	edges.R:SetWidth(t)
+
+	for _, tex in pairs(edges) do
+		tex:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
+		tex:Show()
+	end
 end
 
 local function ClearTicks(bar)
@@ -426,20 +560,44 @@ local function LayoutTicks(bar, profile)
 end
 
 local function StyleBarChrome(bar, db, height)
-	local tex = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(db.powerBarTexture or "Solid"))
-		or GCDM.CONST.TEX_WHITE8X8
-	local bgPath = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(db.powerBarBackgroundTexture or db.powerBarTexture or "Solid"))
-		or GCDM.CONST.TEX_WHITE8X8
+	-- Prefer a vertex-colorable fill. Some LSM textures ignore SetVertexColor and stay white.
+	local texName = db.powerBarTexture or "Solid"
+	local tex = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(texName)) or GCDM.CONST.TEX_WHITE8X8
+	local bgName = db.powerBarBackgroundTexture or "Solid"
 	local bgc = db.powerBarBackgroundColor or { r = 0.1, g = 0.1, b = 0.1, a = 0.95 }
 
 	bar:SetHeight(Pixel.Snap(height))
 	bar:SetStatusBarTexture(tex)
 	local st = bar:GetStatusBarTexture()
+	if not st or (texName ~= "Solid" and st.GetTexture and not st:GetTexture()) then
+		bar:SetStatusBarTexture(GCDM.CONST.TEX_WHITE8X8)
+		st = bar:GetStatusBarTexture()
+	end
 	if st and Pixel.DisableTextureSnap then
 		Pixel.DisableTextureSnap(st)
 	end
-	bar.GCDMBg:SetTexture(bgPath)
-	bar.GCDMBg:SetVertexColor(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 0.95)
+	-- Leave fill color to ApplyFillColor; do not force white here.
+	if st then
+		st:SetAlpha(1)
+		st:Show()
+	end
+	-- Rear strip: independent LSM statusbar texture (not tied to fill).
+	if bgName == "Solid" then
+		bar.GCDMBg:SetColorTexture(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 0.95)
+	else
+		local bgPath = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(bgName)) or GCDM.CONST.TEX_WHITE8X8
+		bar.GCDMBg:SetTexture(bgPath)
+		if bar.GCDMBg.SetTexCoord then
+			bar.GCDMBg:SetTexCoord(0, 1, 0, 1)
+		end
+		if not bar.GCDMBg:GetTexture() then
+			bar.GCDMBg:SetColorTexture(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 0.95)
+		else
+			bar.GCDMBg:SetVertexColor(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 0.95)
+		end
+	end
+	bar.GCDMBg:SetAlpha(1)
+	bar.GCDMBg:Show()
 	if Pixel.DisableTextureSnap then
 		Pixel.DisableTextureSnap(bar.GCDMBg)
 	end
@@ -449,28 +607,19 @@ local function StyleBarChrome(bar, db, height)
 		size = 1
 	end
 	local bc = db.borderColor or { r = 0, g = 0, b = 0, a = 1 }
-	local border = bar.GCDMBorder
-	if size <= 0 then
-		border:Hide()
-	else
-		pcall(border.SetBackdrop, border, {
-			edgeFile = GCDM.CONST.TEX_WHITE8X8,
-			edgeSize = size,
-			insets = { left = 0, right = 0, top = 0, bottom = 0 },
-		})
-		pcall(border.SetBackdropBorderColor, border, bc.r or 0, bc.g or 0, bc.b or 0, bc.a or 1)
-		border:Show()
-	end
+	StylePixelBorder(bar, size, bc.r or 0, bc.g or 0, bc.b or 0, bc.a or 1)
 
-	local fontPath = Skin.FetchFont and Skin.FetchFont(db.textFont or "Expressway") or GCDM.CONST.FONT_PATH
-	local fontSize = db.powerBarFontSize or 12
-	local outline = db.textOutline or "OUTLINE"
-	if outline == "NONE" then
-		outline = ""
-	end
-	pcall(bar.GCDMText.SetFont, bar.GCDMText, fontPath, fontSize, outline)
+	local outline = ApplyPowerBarFont(bar.GCDMText, db) or "OUTLINE"
 	local tc = db.powerBarTextColor or { r = 1, g = 1, b = 1, a = 1 }
 	bar.GCDMText:SetTextColor(tc.r or 1, tc.g or 1, tc.b or 1, tc.a or 1)
+	-- Shadow reinforces outline on bright fills (white energy bar).
+	if outline ~= "" then
+		bar.GCDMText:SetShadowColor(0, 0, 0, 1)
+		bar.GCDMText:SetShadowOffset(1, -1)
+	else
+		bar.GCDMText:SetShadowColor(0, 0, 0, 0)
+		bar.GCDMText:SetShadowOffset(0, 0)
+	end
 	bar.GCDMText:SetShown(db.powerBarShowText ~= false)
 end
 
@@ -480,8 +629,8 @@ local function EnsureHost()
 	end
 	host = CreateFrame("Frame", "GCDM_PowerBarHost", UIParent)
 	host:SetSize(200, 20)
-	host:SetFrameStrata("MEDIUM")
-	host:SetFrameLevel(500)
+	host:SetFrameStrata("BACKGROUND")
+	host:SetFrameLevel(1)
 	primaryBar = EnsureBar(host, "GCDM_PowerBarPrimary")
 	primaryBar:SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
 	primaryBar:SetPoint("TOPRIGHT", host, "TOPRIGHT", 0, 0)
@@ -521,45 +670,54 @@ local function UpdateBarValues(bar, text, powerType, showText, profile)
 	if not bar or powerType == nil then
 		return
 	end
-	-- Absolute fill when curve/ticks are absolute-oriented; else percent.
-	local preferAbsolute = profile and profile.colorMode == "curve" and profile.curveMode == "absolute"
-	if preferAbsolute then
-		local okCur, cur = pcall(UnitPower, "player", powerType)
-		local okMax, maxP = pcall(UnitPowerMax, "player", powerType)
-		if okMax and maxP ~= nil then
-			pcall(bar.SetMinMaxValues, bar, 0, maxP)
-		else
-			local tickMax = (profile and profile.tickMax) or 100
-			pcall(bar.SetMinMaxValues, bar, 0, tickMax)
-		end
-		if okCur and cur ~= nil then
-			pcall(bar.SetValue, bar, cur)
-		end
-	elseif UnitPowerPercent then
+
+	-- Fill ALWAYS uses 0..1 percent (or secret UnitPowerPercent). Absolute power is only for ColorCurve Evaluate.
+	-- Setting SetValue(1) as a "visible fallback" left the bar stuck full/white when SetValue(secret) failed.
+	local filled = false
+	if UnitPowerPercent then
 		local ok, pct = pcall(UnitPowerPercent, "player", powerType)
 		if ok and pct ~= nil then
 			pcall(bar.SetMinMaxValues, bar, 0, 1)
-			pcall(bar.SetValue, bar, pct)
-		end
-	else
-		local okCur, cur = pcall(UnitPower, "player", powerType)
-		local okMax, maxP = pcall(UnitPowerMax, "player", powerType)
-		if okMax and maxP ~= nil then
-			pcall(bar.SetMinMaxValues, bar, 0, maxP)
-		end
-		if okCur and cur ~= nil then
-			pcall(bar.SetValue, bar, cur)
+			if Skin.SmoothBarSetValue then
+				Skin.SmoothBarSetValue(bar, pct, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled())
+				filled = true
+			else
+				local okSet = pcall(bar.SetValue, bar, pct)
+				filled = okSet and true or false
+			end
 		end
 	end
+	if not filled then
+		local okCur, cur = pcall(UnitPower, "player", powerType)
+		local okMax, maxP = pcall(UnitPowerMax, "player", powerType)
+		if okCur and okMax and cur ~= nil and maxP ~= nil then
+			pcall(bar.SetMinMaxValues, bar, 0, maxP)
+			if Skin.SmoothBarSetValue then
+				Skin.SmoothBarSetValue(bar, cur, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled())
+			else
+				pcall(bar.SetValue, bar, cur)
+			end
+			filled = true
+		end
+	end
+	if not filled then
+		pcall(bar.SetMinMaxValues, bar, 0, 1)
+		if Skin.SmoothBarSetValue then
+			Skin.SmoothBarSetValue(bar, 0, false)
+		else
+			pcall(bar.SetValue, bar, 0)
+		end
+	end
+
 	if text and showText then
 		local ok, cur = pcall(UnitPower, "player", powerType)
 		if ok and cur ~= nil then
-			pcall(text.SetText, text, cur)
+			SafeSetPowerText(text, cur)
 		else
-			text:SetText("")
+			SafeSetPowerText(text, "")
 		end
 	elseif text then
-		text:SetText("")
+		SafeSetPowerText(text, "")
 	end
 end
 
@@ -600,12 +758,9 @@ local function AnchorHost(db)
 	end
 
 	h:ClearAllPoints()
+	h:SetFrameStrata("BACKGROUND")
+	h:SetFrameLevel(1)
 	if essential then
-		local strata = essential:GetFrameStrata()
-		if strata then
-			h:SetFrameStrata(strata)
-		end
-		h:SetFrameLevel(math.max((essential:GetFrameLevel() or 0) + 20, 100))
 		h:SetPoint("BOTTOMLEFT", essential, "TOPLEFT", 0, gap)
 		h:SetPoint("BOTTOMRIGHT", essential, "TOPRIGHT", 0, gap)
 		NudgeBuffBarAbovePower(db, h, 1)
@@ -643,28 +798,44 @@ local function ApplyPowerBars()
 		EnsureHost()
 
 		local profile = Skin.GetPowerBarProfile(db, PlayerClassFile())
-		local primaryType, primaryToken, altR, altG, altB = UnitPowerType("player")
-		if primaryType == nil then
-			primaryType = PowerEnum("Energy") or PowerEnum("Rage") or 3
-			primaryToken = primaryToken or "ENERGY"
+		local primaryType, primaryToken, altR, altG, altB
+		do
+			local okType, a, b, c, d, e = pcall(UnitPowerType, "player")
+			if okType then
+				primaryType, primaryToken, altR, altG, altB = a, b, c, d, e
+			end
+		end
+		local typeUsable = false
+		pcall(function()
+			typeUsable = primaryType ~= nil
+		end)
+		if not typeUsable then
+			primaryType = PowerEnum("Rage") or PowerEnum("Energy") or 1
+			primaryToken = "RAGE"
 		end
 
 		local pr, pg, pb, pa = SafePowerColor(primaryType, primaryToken, altR, altG, altB)
 		local height = db.powerBarHeight or 10
+		if type(height) ~= "number" or height < 1 then
+			height = 10
+		end
 		StyleBarChrome(primaryBar, db, height)
 		UpdateBarValues(primaryBar, primaryText, primaryType, db.powerBarShowText ~= false, profile)
 		ApplyFillColor(primaryBar, primaryType, profile, pr, pg, pb, pa)
 		LayoutTicks(primaryBar, profile)
 		primaryBar:Show()
+		primaryBar:SetAlpha(1)
 
 		local secondaryType = nil
 		if db.powerBarShowSecondary ~= false then
-			secondaryType = FindSecondaryPowerType(primaryType)
+			local okSec, sec = pcall(FindSecondaryPowerType, primaryType)
+			if okSec then
+				secondaryType = sec
+			end
 		end
 		if secondaryType then
 			local sr, sg, sb, sa = SafePowerColor(secondaryType, nil)
 			StyleBarChrome(secondaryBar, db, height)
-			-- Secondary uses class/solid only (no curve) unless same profile curve requested.
 			local secProfile = {
 				colorMode = (profile.colorMode == "curve") and "class" or profile.colorMode,
 				solidColor = profile.solidColor,
@@ -674,11 +845,10 @@ local function ApplyPowerBars()
 			ApplyFillColor(secondaryBar, secondaryType, secProfile, sr, sg, sb, sa)
 			ClearTicks(secondaryBar)
 			secondaryBar:Show()
+			secondaryBar:SetAlpha(1)
 		else
 			secondaryBar:Hide()
-			if secondaryText then
-				secondaryText:SetText("")
-			end
+			SafeSetPowerText(secondaryText, "")
 		end
 
 		AnchorHost(db)
@@ -687,9 +857,26 @@ local function ApplyPowerBars()
 		host:SetAlpha(1)
 	end)
 	applying = false
-	if not ok and not GCDM._powerBarErrOnce then
-		GCDM._powerBarErrOnce = true
+	if not ok then
+		-- Always surface errors; previous once-only hide left users with a missing bar.
 		print("|cff3bb273GCDM|r PowerBar error: " .. tostring(err))
+		-- Last-resort visible host so we can still diagnose position.
+		local db = GCDM:GetDB()
+		if db and db.enabled and db.powerBarEnabled ~= false then
+			pcall(function()
+				EnsureHost()
+				local profile = Skin.GetPowerBarProfile(db, PlayerClassFile())
+				local pt = PowerEnum("Rage") or PowerEnum("Energy") or 1
+				local pr, pg, pb, pa = SafePowerColor(pt, "RAGE")
+				StyleBarChrome(primaryBar, db, db.powerBarHeight or 10)
+				UpdateBarValues(primaryBar, primaryText, pt, db.powerBarShowText ~= false, profile)
+				ApplyFillColor(primaryBar, pt, profile, pr, pg, pb, pa)
+				primaryBar:Show()
+				AnchorHost(db)
+				host:Show()
+				host:SetAlpha(1)
+			end)
+		end
 	end
 	if queued then
 		queued = false

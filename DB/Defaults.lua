@@ -22,23 +22,68 @@ ns.defaults = {
 		swipeColor = { r = 0, g = 0, b = 0, a = 0.6 },
 		debugSkin = false,
 
-		textFont = "Expressway",
-		textOutline = "OUTLINE",
-		cooldownFontSize = 14,
-		cooldownTextColor = { r = 1, g = 1, b = 1, a = 1 },
-		cooldownTextPoint = "CENTER",
-		cooldownTextOffsetX = 0,
-		cooldownTextOffsetY = 0,
-		stackFontSize = 12,
-		stackTextColor = { r = 1, g = 1, b = 1, a = 1 },
-		stackTextPoint = "BOTTOMRIGHT",
-		stackTextOffsetX = -1,
-		stackTextOffsetY = 1,
+		-- Per-viewer text (Essential / Utility / Buff icons / Buff bars). No global Text tab.
+		textByViewer = {
+			EssentialCooldownViewer = {
+				textFont = "Expressway",
+				textOutline = "OUTLINE",
+				cooldownFontSize = 14,
+				cooldownTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				cooldownTextPoint = "CENTER",
+				cooldownTextOffsetX = 0,
+				cooldownTextOffsetY = 0,
+				stackFontSize = 12,
+				stackTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				stackTextPoint = "BOTTOMRIGHT",
+				stackTextOffsetX = -1,
+				stackTextOffsetY = 1,
+			},
+			UtilityCooldownViewer = {
+				textFont = "Expressway",
+				textOutline = "OUTLINE",
+				cooldownFontSize = 14,
+				cooldownTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				cooldownTextPoint = "CENTER",
+				cooldownTextOffsetX = 0,
+				cooldownTextOffsetY = 0,
+				stackFontSize = 12,
+				stackTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				stackTextPoint = "BOTTOMRIGHT",
+				stackTextOffsetX = -1,
+				stackTextOffsetY = 1,
+			},
+			BuffIconCooldownViewer = {
+				textFont = "Expressway",
+				textOutline = "OUTLINE",
+				cooldownFontSize = 14,
+				cooldownTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				cooldownTextPoint = "CENTER",
+				cooldownTextOffsetX = 0,
+				cooldownTextOffsetY = 0,
+				stackFontSize = 12,
+				stackTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				stackTextPoint = "BOTTOMRIGHT",
+				stackTextOffsetX = -1,
+				stackTextOffsetY = 1,
+			},
+			BuffBarCooldownViewer = {
+				textFont = "Expressway",
+				textOutline = "OUTLINE",
+				nameFontSize = 12,
+				durationFontSize = 14,
+				nameTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				durationTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				nameTextOffsetX = 4,
+				nameTextOffsetY = 0,
+				durationTextOffsetX = -4,
+				durationTextOffsetY = 0,
+			},
+		},
 
 		fadeOutOfCombat = false,
 		fadeAlpha = 0.35,
 
-		glowEnabled = false,
+		glowEnabled = true,
 		glowAutoFit = true,
 		glowScale = 1,
 		glowOffsetX = 0,
@@ -68,6 +113,8 @@ ns.defaults = {
 		buffBarShowDuration = true,
 		buffBarColor = { r = 0.4, g = 0.6, b = 0.9, a = 1 },
 		buffBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.8 },
+		-- Smooth StatusBar fill (Power / Aura / Buff bars). Off by default.
+		barSmoothProgress = false,
 
 		-- Player power (energy/rage/runic/…). Separate from thin aura strips.
 		powerBarEnabled = true,
@@ -78,17 +125,19 @@ ns.defaults = {
 		powerBarGap = 2,
 		powerBarBorderSize = 1,
 		powerBarFontSize = 12,
+		powerBarFont = "Expressway",
+		powerBarTextOutline = "OUTLINE",
 		powerBarTexture = "Solid",
 		powerBarBackgroundTexture = "Solid",
 		powerBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.9 },
 		powerBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
 		-- Global / DEFAULT profile (overridable per class in powerBarProfiles).
-		powerBarColorMode = "class", -- class | solid | curve
-		powerBarCurveMode = "absolute", -- absolute | percent
-		-- value:r,g,b,a | …  Example: yellow to 100, then white
+		powerBarColorMode = "class", -- class | solid
+		powerBarCurveMode = "absolute", -- unused in UI; kept for old profiles
+		-- value:r,g,b,a | …  (legacy ColorCurve; UI removed)
 		powerBarCurvePointsStr = "0:1,0.85,0.1,1|100:1,0.85,0.1,1|100.01:1,1,1,1|200:1,1,1,1",
 		powerBarColor = { r = 0.55, g = 0.1, b = 0.1, a = 1 },
-		powerBarTickMode = "none", -- none | equal | values
+		powerBarTickMode = "none", -- none | equal | values (UI removed; default none)
 		powerBarTickCount = 4,
 		powerBarTickAtStr = "25,50,75,100",
 		powerBarTickMax = 100,
@@ -111,6 +160,8 @@ ns.defaults = {
 		auraBarGap = 1,
 		auraBarBorderSize = 0,
 		auraBarFontSize = 10,
+		auraBarFont = "Expressway",
+		auraBarTextOutline = "OUTLINE",
 		auraBarTexture = "Solid",
 		auraBarBackgroundTexture = "Solid",
 		auraBarColor = { r = 0.4, g = 0.6, b = 0.9, a = 1 },
@@ -118,10 +169,22 @@ ns.defaults = {
 		auraBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 1 },
 		auraBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
 		auraBarShowName = false,
+		auraBarShowDuration = true,
 		auraBarShowTicks = true,
 		auraSoundOnApply = false,
 		auraSoundOnStack = false,
 		auraSoundOnRemove = false,
 		auraSoundKitID = 0,
+		-- Independent sound rules tab (AddAuraSound).
+		auraSoundEnabled = true,
+		auraSoundDefaultKitID = 878,
+		auraSoundRules = {},
+		auraSoundDraft = {
+			spellSelect = "custom",
+			spellID = "",
+			unit = "player",
+			event = "apply",
+			soundKey = "kit:878",
+		},
 	},
 }

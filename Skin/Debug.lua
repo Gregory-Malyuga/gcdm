@@ -285,6 +285,9 @@ function GCDM:DumpBuffBarDebug()
 	end
 
 	local ok, err = pcall(function()
+		if self.Refresh and self.CONST and self.CONST.REFRESH then
+			self:Refresh(self.CONST.REFRESH.LAYOUT)
+		end
 		local db = self:GetDB()
 		local viewer = self.ViewerRegistry and self.ViewerRegistry:BuffBar()
 		local essential = self.ViewerRegistry and self.ViewerRegistry:Essential()
@@ -315,9 +318,10 @@ function GCDM:DumpBuffBarDebug()
 		end
 		local formulaW = (maxRow * iw) + ((maxRow - 1) * (tonumber(spacing) or 0))
 		L(SafeFormat(
-			"enabled=%s buffBarEnabled=%s styleRaw=%s styleResolved=%s editMode=%s",
+			"enabled=%s buffBarEnabled=%s powerBarEnabled=%s styleRaw=%s styleResolved=%s editMode=%s",
 			tostring(db and db.enabled),
 			tostring(db and db.buffBarEnabled),
+			tostring(db and db.powerBarEnabled),
 			tostring(styleRaw),
 			tostring(styleResolved),
 			tostring(editMode)
@@ -400,6 +404,57 @@ function GCDM:DumpBuffBarDebug()
 			L("essential points: " .. DescribePoints(essential))
 		else
 			L("essential: MISSING")
+		end
+
+		do
+			local ph = self.GetPowerBarHost and self:GetPowerBarHost() or _G.GCDM_PowerBarHost
+			local primary = _G.GCDM_PowerBarPrimary
+			L(SafeFormat(
+				"powerBarEnabled=%s height=%s widthSetting=%s gap=%s tex=%s",
+				tostring(db and db.powerBarEnabled),
+				tostring(db and db.powerBarHeight),
+				tostring(db and db.powerBarWidth),
+				tostring(db and db.powerBarGap),
+				tostring(db and db.powerBarTexture)
+			))
+			if ph then
+				L(SafeFormat(
+					"PowerHost shown=%s a=%.2f size=%.1fx%.1f left=%.1f right=%.1f strata=%s level=%s parent=%s",
+					SafeStr(ph:IsShown()),
+					SafeNum(ph:GetAlpha()),
+					SafeNum(ph:GetWidth()),
+					SafeNum(ph:GetHeight()),
+					SafeNum(ph:GetLeft()),
+					SafeNum(ph:GetRight()),
+					SafeStr(ph:GetFrameStrata()),
+					SafeStr(ph:GetFrameLevel()),
+					SafeStr(ph:GetParent() and ph:GetParent():GetName())
+				))
+				L("PowerHost points: " .. DescribePoints(ph))
+			else
+				L("PowerHost: MISSING (ApplyPowerBars never created host)")
+			end
+			if primary then
+				local st = primary.GetStatusBarTexture and primary:GetStatusBarTexture()
+				local mn, mx, cur = 0, 0, 0
+				pcall(function()
+					mn, mx = primary:GetMinMaxValues()
+					cur = primary:GetValue()
+				end)
+				L(SafeFormat(
+					"PowerPrimary shown=%s a=%.2f size=%.1fx%.1f values=%.2f/%.2f/%.2f hasTex=%s",
+					SafeStr(primary:IsShown()),
+					SafeNum(primary:GetAlpha()),
+					SafeNum(primary:GetWidth()),
+					SafeNum(primary:GetHeight()),
+					SafeNum(mn),
+					SafeNum(mx),
+					SafeNum(cur),
+					tostring(st ~= nil)
+				))
+			else
+				L("PowerPrimary: MISSING")
+			end
 		end
 
 		local function DumpViewerIcons(label, v)

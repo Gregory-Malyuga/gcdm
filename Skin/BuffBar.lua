@@ -93,7 +93,11 @@ local function SyncSkinBarValues(frame, bar)
 	if type(value) ~= "number" then
 		value = 0
 	end
-	skin:SetValue(value)
+	if Skin.SmoothBarSetValue then
+		Skin.SmoothBarSetValue(skin, value, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled(db))
+	else
+		skin:SetValue(value)
+	end
 end
 
 local function HideBlizzardBarArt(bar)

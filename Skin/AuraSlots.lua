@@ -116,16 +116,15 @@ local function EnsureHost()
 	end
 	host = CreateFrame("Frame", "GCDM_AuraSlotHost", UIParent)
 	host:SetSize(200, 10)
-	host:SetFrameStrata("MEDIUM")
-	host:SetFrameLevel(520)
+	host:SetFrameStrata("BACKGROUND")
+	host:SetFrameLevel(1)
 	return host
 end
 
 local function StyleStatusBar(bar, db, fr, fg, fb, fa)
 	local texName = db.auraBarTexture or db.buffBarTexture or "Solid"
-	local bgName = db.auraBarBackgroundTexture or db.buffBarBackgroundTexture or texName
+	local bgName = db.auraBarBackgroundTexture or "Solid"
 	local tex = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(texName)) or GCDM.CONST.TEX_WHITE8X8
-	local bgPath = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(bgName)) or GCDM.CONST.TEX_WHITE8X8
 	local bgc = db.auraBarBackgroundColor or db.buffBarBackgroundColor or { r = 0.1, g = 0.1, b = 0.1, a = 1 }
 
 	bar:SetStatusBarTexture(tex)
@@ -141,8 +140,115 @@ local function StyleStatusBar(bar, db, fr, fg, fb, fa)
 		bar.GCDMBg = bar:CreateTexture(nil, "BACKGROUND")
 		bar.GCDMBg:SetAllPoints()
 	end
-	bar.GCDMBg:SetTexture(bgPath)
-	bar.GCDMBg:SetVertexColor(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 1)
+	-- Rear strip: independent of fill texture.
+	if bgName == "Solid" then
+		bar.GCDMBg:SetColorTexture(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 1)
+	else
+		local bgPath = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(bgName)) or GCDM.CONST.TEX_WHITE8X8
+		bar.GCDMBg:SetTexture(bgPath)
+		if bar.GCDMBg.SetTexCoord then
+			bar.GCDMBg:SetTexCoord(0, 1, 0, 1)
+		end
+		if not bar.GCDMBg:GetTexture() then
+			bar.GCDMBg:SetColorTexture(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 1)
+		else
+			bar.GCDMBg:SetVertexColor(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 1)
+		end
+	end
+	bar.GCDMBg:Show()
+	if Pixel.DisableTextureSnap then
+		Pixel.DisableTextureSnap(bar.GCDMBg)
+	end
+end
+
+local function StyleAuraFontString(fs, db)
+	if not fs then
+		return
+	end
+	local fontPath = (Skin.FetchFont and Skin.FetchFont(db.auraBarFont or db.textFont or "Expressway")) or GCDM.CONST.FONT_PATH
+	local fontSize = db.auraBarFontSize or 10
+	local outlineRaw = db.auraBarTextOutline
+	if outlineRaw == nil then
+		outlineRaw = "OUTLINE"
+	end
+	local outline = (Skin.ResolveOutline and Skin.ResolveOutline(outlineRaw)) or outlineRaw or "OUTLINE"
+	if outline == "NONE" then
+		outline = ""
+	end
+	pcall(fs.SetFont, fs, fontPath, fontSize, outline)
+	local tc = db.auraBarTextColor or { r = 1, g = 1, b = 1, a = 1 }
+	fs:SetTextColor(tc.r or 1, tc.g or 1, tc.b or 1, tc.a or 1)
+	if outline ~= "" then
+		fs:SetShadowColor(0, 0, 0, 1)
+		fs:SetShadowOffset(1, -1)
+	else
+		fs:SetShadowColor(0, 0, 0, 0)
+		fs:SetShadowOffset(0, 0)
+	end
+end
+
+local function SpellDisplayName(spellID)
+	if C_Spell and C_Spell.GetSpellName then
+		local ok, name = pcall(C_Spell.GetSpellName, spellID)
+		if ok and name then
+			return name
+		end
+	end
+	if GetSpellInfo then
+		local ok, name = pcall(GetSpellInfo, spellID)
+		if ok and name then
+			return name
+		end
+	end
+	return tostring(spellID or "")
+end
+
+-- Name left, duration/value right. Prefer Blizzard AuraButton text setters when present.
+local function EnsureSlotTexts(owner, entry, db)
+	if not owner or not entry then
+		return
+	end
+	local showName = db.auraBarShowName == true
+	local showDuration = db.auraBarShowDuration ~= false
+
+	if showName then
+		if not entry.nameFS then
+			entry.nameFS = owner:CreateFontString(nil, "OVERLAY")
+			entry.nameFS:SetPoint("LEFT", owner, "LEFT", 4, 0)
+			entry.nameFS:SetJustifyH("LEFT")
+			if owner.SetSpellName then
+				pcall(owner.SetSpellName, owner, entry.nameFS)
+			end
+		end
+		StyleAuraFontString(entry.nameFS, db)
+		if not owner.SetSpellName then
+			entry.nameFS:SetText(SpellDisplayName(entry.spellID))
+		end
+		entry.nameFS:Show()
+	elseif entry.nameFS then
+		entry.nameFS:Hide()
+	end
+
+	if showDuration then
+		if not entry.durFS then
+			entry.durFS = owner:CreateFontString(nil, "OVERLAY")
+			entry.durFS:SetPoint("RIGHT", owner, "RIGHT", -4, 0)
+			entry.durFS:SetJustifyH("RIGHT")
+			local bound = false
+			if owner.SetDurationText then
+				bound = pcall(owner.SetDurationText, owner, entry.durFS)
+			elseif owner.SetTimerText then
+				bound = pcall(owner.SetTimerText, owner, entry.durFS)
+			elseif owner.SetApplicationText and entry.mode == "applications" then
+				bound = pcall(owner.SetApplicationText, owner, entry.durFS)
+			end
+			entry.durFS._gcdmBlizzBound = bound and true or false
+		end
+		StyleAuraFontString(entry.durFS, db)
+		entry.durFS:Show()
+	elseif entry.durFS then
+		entry.durFS:Hide()
+	end
 end
 
 local function ClearTicks(entry)
@@ -256,44 +362,51 @@ local function MakeBarForButton(parent, height)
 end
 
 local function InitializeSlotFrame(auraButton, cfg, db)
-	if not auraButton or auraButton.GCDMSlotWired then
+	if not auraButton then
 		return
 	end
-	auraButton.GCDMSlotWired = true
 	local height = db.auraBarHeight or 6
 	auraButton:SetSize(ResolveWidth(db), Pixel.Snap(height))
-
-	local bar = MakeBarForButton(auraButton, height)
-	local fill = db.auraBarColor or db.buffBarColor or { r = 0.4, g = 0.6, b = 0.9, a = 1 }
-	if cfg.mode == "applications" then
-		fill = db.auraAppBarColor or { r = 0.2, g = 0.85, b = 0.75, a = 1 }
-	end
-	StyleStatusBar(bar, db, fill.r or 0.4, fill.g or 0.6, fill.b or 0.9, fill.a or 1)
 
 	local key = "gcdm_" .. tostring(cfg.spellID)
 	local entry = slotEntries[key] or { spellID = cfg.spellID, mode = cfg.mode, maxApps = cfg.maxApps }
 	entry.button = auraButton
-	entry.bar = bar
 	entry.mode = cfg.mode
 	entry.maxApps = cfg.maxApps or 1
+	entry.spellID = cfg.spellID
 	slotEntries[key] = entry
 
+	local fill = db.auraBarColor or db.buffBarColor or { r = 0.4, g = 0.6, b = 0.9, a = 1 }
 	if cfg.mode == "applications" then
-		if auraButton.SetApplicationBar then
-			pcall(auraButton.SetApplicationBar, auraButton, bar, { maxApplications = cfg.maxApps or 4 })
+		fill = db.auraAppBarColor or { r = 0.2, g = 0.85, b = 0.75, a = 1 }
+	end
+
+	if not auraButton.GCDMSlotWired then
+		auraButton.GCDMSlotWired = true
+		local bar = MakeBarForButton(auraButton, height)
+		entry.bar = bar
+		StyleStatusBar(bar, db, fill.r or 0.4, fill.g or 0.6, fill.b or 0.9, fill.a or 1)
+
+		if cfg.mode == "applications" then
+			if auraButton.SetApplicationBar then
+				pcall(auraButton.SetApplicationBar, auraButton, bar, { maxApplications = cfg.maxApps or 4 })
+			end
+			EnsureTicks(entry, cfg.maxApps or 4, db.auraBarShowTicks ~= false)
+		else
+			if auraButton.SetDurationBar then
+				pcall(auraButton.SetDurationBar, auraButton, bar, {})
+			end
 		end
-		EnsureTicks(entry, cfg.maxApps or 4, db.auraBarShowTicks ~= false)
 	else
-		if auraButton.SetDurationBar then
-			pcall(auraButton.SetDurationBar, auraButton, bar, {})
+		if entry.bar then
+			StyleStatusBar(entry.bar, db, fill.r or 0.4, fill.g or 0.6, fill.b or 0.9, fill.a or 1)
+			if cfg.mode == "applications" then
+				EnsureTicks(entry, cfg.maxApps or 4, db.auraBarShowTicks ~= false)
+			end
 		end
 	end
 
-	if db.auraBarShowName == true and auraButton.SetSpellName then
-		local fs = auraButton:CreateFontString(nil, "OVERLAY")
-		fs:SetPoint("LEFT", 4, 0)
-		pcall(auraButton.SetSpellName, auraButton, fs)
-	end
+	EnsureSlotTexts(auraButton, entry, db)
 end
 
 local function ClearContainerSlots()
@@ -378,6 +491,8 @@ local function AnchorHost(db, count, height, spacing)
 		hostH = (count * height) + ((count - 1) * spacing)
 	end
 	h:SetSize(width, hostH)
+	h:SetFrameStrata("BACKGROUND")
+	h:SetFrameLevel(1)
 	h:ClearAllPoints()
 	local anchor = GCDM.GetPowerBarHost and GCDM:GetPowerBarHost()
 	if anchor and anchor:IsShown() then
@@ -446,6 +561,7 @@ end
 local function EnsureLegacyBar(key, cfg, db)
 	local entry = slotEntries[key]
 	if entry and entry.legacyBar then
+		EnsureSlotTexts(entry.legacyBar, entry, db)
 		return entry
 	end
 	EnsureHost()
@@ -468,6 +584,7 @@ local function EnsureLegacyBar(key, cfg, db)
 	if cfg.mode == "applications" then
 		EnsureTicks(entry, cfg.maxApps or 4, db.auraBarShowTicks ~= false)
 	end
+	EnsureSlotTexts(bar, entry, db)
 	return entry
 end
 
@@ -486,9 +603,23 @@ local function UpdateLegacyEntry(entry, db)
 		pcall(bar.SetMinMaxValues, bar, 0, maxApps)
 		local apps = data.applications
 		if apps ~= nil then
-			pcall(bar.SetValue, bar, apps)
+			if Skin.SmoothBarSetValue then
+				Skin.SmoothBarSetValue(bar, apps, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled())
+			else
+				pcall(bar.SetValue, bar, apps)
+			end
+			if entry.durFS and db.auraBarShowDuration ~= false and type(apps) == "number" then
+				entry.durFS:SetText(tostring(apps))
+			end
 		else
-			pcall(bar.SetValue, bar, 1)
+			if Skin.SmoothBarSetValue then
+				Skin.SmoothBarSetValue(bar, 1, false)
+			else
+				pcall(bar.SetValue, bar, 1)
+			end
+			if entry.durFS then
+				entry.durFS:SetText("")
+			end
 		end
 	else
 		StyleStatusBar(bar, db, fill.r, fill.g, fill.b, fill.a)
@@ -505,7 +636,12 @@ local function UpdateLegacyEntry(entry, db)
 			bar:SetMinMaxValues(0, 1)
 			bar:SetValue(1)
 		end
+		-- Duration digits are secret-safe only via Blizzard duration objects / setters; leave blank in legacy.
+		if entry.durFS and not entry.durFS._gcdmBlizzBound then
+			entry.durFS:SetText("")
+		end
 	end
+	EnsureSlotTexts(bar, entry, db)
 	bar:Show()
 	return true
 end

@@ -29,14 +29,43 @@ function GCDM:OnInitialize()
 	end
 	self.db.profile.glowDisabledCooldowns = self.db.profile.glowDisabledCooldowns or {}
 	self.db.profile.glowDisabledSpells = self.db.profile.glowDisabledSpells or {}
+	-- Proc glow was off by default; turn on once for existing profiles.
+	if not self.db.profile._gcdmGlowEnabledDefault then
+		self.db.profile.glowEnabled = true
+		self.db.profile._gcdmGlowEnabledDefault = true
+	elseif self.db.profile.glowEnabled == nil then
+		self.db.profile.glowEnabled = true
+	end
 	if self.db.profile.powerBarEnabled == nil then
 		self.db.profile.powerBarEnabled = true
+	elseif self.db.profile.powerBarEnabled == false then
+		-- Keep explicit false; do not force on.
 	end
-	if self.db.profile.powerBarHeight == nil then
+	-- Ensure height is never zero/invalid from old profiles.
+	if type(self.db.profile.powerBarHeight) ~= "number" or self.db.profile.powerBarHeight < 1 then
 		self.db.profile.powerBarHeight = 10
 	end
 	if self.db.profile.powerBarShowText == nil then
 		self.db.profile.powerBarShowText = true
+	end
+	-- Drop ColorCurve / ticks UI; force simple class|solid (+ no ticks).
+	if not self.db.profile._gcdmPowerBarSimpleColor then
+		if self.db.profile.powerBarColorMode == "curve" then
+			self.db.profile.powerBarColorMode = "class"
+		end
+		self.db.profile.powerBarTickMode = "none"
+		local profiles = self.db.profile.powerBarProfiles
+		if type(profiles) == "table" then
+			for _, cfg in pairs(profiles) do
+				if type(cfg) == "table" then
+					if cfg.colorMode == "curve" then
+						cfg.colorMode = "class"
+					end
+					cfg.tickMode = "none"
+				end
+			end
+		end
+		self.db.profile._gcdmPowerBarSimpleColor = true
 	end
 	if not self.db.profile.glowScale then
 		self.db.profile.glowScale = 1
@@ -57,6 +86,73 @@ function GCDM:OnInitialize()
 			p[key] = { r = c.r or 1, g = c.g or 1, b = c.b or 1, a = c.a or 1 }
 		end
 	end
+	-- Migrate legacy global text → per-viewer textByViewer (once).
+	if not p._gcdmPerViewerText then
+		p.textByViewer = p.textByViewer or {}
+		local function copyColor(c, fb)
+			fb = fb or { r = 1, g = 1, b = 1, a = 1 }
+			if type(c) ~= "table" then
+				return { r = fb.r, g = fb.g, b = fb.b, a = fb.a }
+			end
+			return { r = c.r or fb.r, g = c.g or fb.g, b = c.b or fb.b, a = c.a or fb.a }
+		end
+		local function ensureIcon(key)
+			local st = p.textByViewer[key]
+			if type(st) ~= "table" then
+				st = {}
+				p.textByViewer[key] = st
+			end
+			st.textFont = st.textFont or p.textFont or "Expressway"
+			if st.textOutline == nil then
+				st.textOutline = p.textOutline or "OUTLINE"
+			end
+			st.cooldownFontSize = st.cooldownFontSize or p.cooldownFontSize or 14
+			st.cooldownTextColor = copyColor(st.cooldownTextColor or p.cooldownTextColor)
+			st.cooldownTextPoint = st.cooldownTextPoint or p.cooldownTextPoint or "CENTER"
+			st.cooldownTextOffsetX = st.cooldownTextOffsetX or p.cooldownTextOffsetX or 0
+			st.cooldownTextOffsetY = st.cooldownTextOffsetY or p.cooldownTextOffsetY or 0
+			st.stackFontSize = st.stackFontSize or p.stackFontSize or 12
+			st.stackTextColor = copyColor(st.stackTextColor or p.stackTextColor)
+			st.stackTextPoint = st.stackTextPoint or p.stackTextPoint or "BOTTOMRIGHT"
+			st.stackTextOffsetX = st.stackTextOffsetX or p.stackTextOffsetX or -1
+			st.stackTextOffsetY = st.stackTextOffsetY or p.stackTextOffsetY or 1
+		end
+		ensureIcon("EssentialCooldownViewer")
+		ensureIcon("UtilityCooldownViewer")
+		ensureIcon("BuffIconCooldownViewer")
+		do
+			local st = p.textByViewer.BuffBarCooldownViewer
+			if type(st) ~= "table" then
+				st = {}
+				p.textByViewer.BuffBarCooldownViewer = st
+			end
+			st.textFont = st.textFont or p.textFont or "Expressway"
+			if st.textOutline == nil then
+				st.textOutline = p.textOutline or "OUTLINE"
+			end
+			st.nameFontSize = st.nameFontSize or p.stackFontSize or 12
+			st.durationFontSize = st.durationFontSize or p.cooldownFontSize or 14
+			st.nameTextColor = copyColor(st.nameTextColor or p.stackTextColor)
+			st.durationTextColor = copyColor(st.durationTextColor or p.cooldownTextColor)
+			st.nameTextOffsetX = st.nameTextOffsetX or 4
+			st.nameTextOffsetY = st.nameTextOffsetY or 0
+			st.durationTextOffsetX = st.durationTextOffsetX or -4
+			st.durationTextOffsetY = st.durationTextOffsetY or 0
+		end
+		if p.powerBarFont == nil then
+			p.powerBarFont = p.textFont or "Expressway"
+		end
+		if p.powerBarTextOutline == nil then
+			p.powerBarTextOutline = p.textOutline or "OUTLINE"
+		end
+		if p.auraBarFont == nil then
+			p.auraBarFont = p.textFont or "Expressway"
+		end
+		if p.auraBarTextOutline == nil then
+			p.auraBarTextOutline = p.textOutline or "OUTLINE"
+		end
+		p._gcdmPerViewerText = true
+	end
 	MaterializeColor("borderColor")
 	MaterializeColor("swipeColor")
 	MaterializeColor("buffBarColor")
@@ -64,17 +160,69 @@ function GCDM:OnInitialize()
 	MaterializeColor("auraBarColor")
 	MaterializeColor("auraAppBarColor")
 	MaterializeColor("auraBarBackgroundColor")
-	MaterializeColor("cooldownTextColor")
-	MaterializeColor("stackTextColor")
+	MaterializeColor("auraBarTextColor")
 	MaterializeColor("powerBarColor")
 	MaterializeColor("powerBarBackgroundColor")
 	MaterializeColor("powerBarTextColor")
 	MaterializeColor("powerBarSecondaryColor")
+	do
+		local tv = p.textByViewer
+		if type(tv) == "table" then
+			for _, st in pairs(tv) do
+				if type(st) == "table" then
+					for _, ck in ipairs({
+						"cooldownTextColor",
+						"stackTextColor",
+						"nameTextColor",
+						"durationTextColor",
+					}) do
+						local c = st[ck]
+						if type(c) == "table" then
+							st[ck] = { r = c.r or 1, g = c.g or 1, b = c.b or 1, a = c.a or 1 }
+						end
+					end
+				end
+			end
+		end
+	end
 	if self.db.profile.auraAppSpellIDs == nil then
 		self.db.profile.auraAppSpellIDs = ""
 	end
 	if self.db.profile.auraBarShowTicks == nil then
 		self.db.profile.auraBarShowTicks = true
+	end
+	if self.db.profile.auraBarShowDuration == nil then
+		self.db.profile.auraBarShowDuration = true
+	end
+	if self.db.profile.auraBarFontSize == nil then
+		self.db.profile.auraBarFontSize = 10
+	end
+	if self.db.profile.auraSoundEnabled == nil then
+		self.db.profile.auraSoundEnabled = true
+	end
+	if self.db.profile.auraSoundRules == nil then
+		self.db.profile.auraSoundRules = {}
+	end
+	if type(self.db.profile.auraSoundDraft) ~= "table" then
+		self.db.profile.auraSoundDraft = {
+			spellSelect = "custom",
+			spellID = "",
+			unit = "player",
+			event = "apply",
+			soundKey = "kit:878",
+		}
+	else
+		local d = self.db.profile.auraSoundDraft
+		if d.soundKey == nil and d.soundKitID ~= nil then
+			local kit = tonumber(d.soundKitID) or 878
+			d.soundKey = "kit:" .. kit
+		end
+		if d.spellSelect == nil then
+			d.spellSelect = "custom"
+		end
+	end
+	if self.db.profile.auraSoundDefaultKitID == nil then
+		self.db.profile.auraSoundDefaultKitID = 878
 	end
 	if self.db.profile.powerBarProfiles == nil then
 		self.db.profile.powerBarProfiles = {}

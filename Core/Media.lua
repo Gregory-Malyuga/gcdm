@@ -58,7 +58,17 @@ function Skin.RegisterExpresswayAlias()
 		end
 	end
 	if not path then
-		path = EXPRESSWAY_FALLBACK_PATH
+		-- Only use bundled SharedMedia path when the file actually exists.
+		local fallbackOK = false
+		if GetFileIDFromPath then
+			local ok, id = pcall(GetFileIDFromPath, EXPRESSWAY_FALLBACK_PATH)
+			fallbackOK = ok and id and id ~= 0
+		end
+		if fallbackOK then
+			path = EXPRESSWAY_FALLBACK_PATH
+		else
+			path = GCDM.CONST.FONT_PATH or [[Fonts\FRIZQT__.TTF]]
+		end
 	end
 	if lib.IsValid and lib:IsValid(mt, EXPRESSWAY) then
 		local existing = lib:Fetch(mt, EXPRESSWAY, true)
@@ -126,14 +136,16 @@ function Skin.ListMedia(mediaType)
 				mt = lib.MediaType.STATUSBAR or "statusbar"
 			elseif mediaType == "background" then
 				mt = lib.MediaType.BACKGROUND or "background"
+			elseif mediaType == "sound" then
+				mt = lib.MediaType.SOUND or "sound"
 			end
 		end
 		for _, name in ipairs(lib:List(mt)) do
 			out[name] = name
 		end
 	end
-	-- Solid is a GCDM texture alias, not a font.
-	if mediaType ~= "font" and not out[SOLID] then
+	-- Solid is a GCDM texture alias, not a font/sound.
+	if mediaType ~= "font" and mediaType ~= "sound" and not out[SOLID] then
 		out[SOLID] = SOLID
 	end
 	return out
@@ -152,6 +164,8 @@ function Skin.FetchMedia(mediaType, name, fallback)
 				mt = lib.MediaType.STATUSBAR or "statusbar"
 			elseif mediaType == "background" then
 				mt = lib.MediaType.BACKGROUND or "background"
+			elseif mediaType == "sound" then
+				mt = lib.MediaType.SOUND or "sound"
 			end
 		end
 		local path = lib:Fetch(mt, name, true)
@@ -277,10 +291,25 @@ function Skin.InitSharedMedia()
 	local db = GCDM.GetDB and GCDM:GetDB()
 	if db and not db.expresswayDefaultApplied then
 		db.expresswayDefaultApplied = true
-		if not db.textFont or db.textFont == "Friz Quadrata TT" then
-			local preferred = Skin.DefaultFontName()
-			if preferred and preferred ~= "Friz Quadrata TT" then
-				db.textFont = preferred
+		local preferred = Skin.DefaultFontName()
+		if preferred and preferred ~= "Friz Quadrata TT" then
+			db.textByViewer = db.textByViewer or {}
+			for _, key in ipairs({
+				"EssentialCooldownViewer",
+				"UtilityCooldownViewer",
+				"BuffIconCooldownViewer",
+				"BuffBarCooldownViewer",
+			}) do
+				local st = db.textByViewer[key]
+				if type(st) == "table" and (not st.textFont or st.textFont == "Friz Quadrata TT") then
+					st.textFont = preferred
+				end
+			end
+			if not db.powerBarFont or db.powerBarFont == "Friz Quadrata TT" then
+				db.powerBarFont = preferred
+			end
+			if not db.auraBarFont or db.auraBarFont == "Friz Quadrata TT" then
+				db.auraBarFont = preferred
 			end
 		end
 	end

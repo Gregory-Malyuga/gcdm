@@ -1,4 +1,4 @@
-local ADDON_NAME, ns = ...
+﻿local ADDON_NAME, ns = ...
 local L = ns.L
 
 local function RefreshSkin(addon)
@@ -28,6 +28,56 @@ function ns.SetupOptions(addon)
 		return addon.db.profile
 	end
 
+	local auraBarDurDraft = { select = "custom", id = "" }
+	local auraBarAppDraft = { select = "custom", id = "", max = "4" }
+
+	local function AuraBarDurDraft()
+		return auraBarDurDraft
+	end
+
+	local function AuraBarAppDraft()
+		return auraBarAppDraft
+	end
+
+	local function SplitAuraCsv(str)
+		local out = {}
+		if type(str) ~= "string" or str == "" then
+			return out
+		end
+		for part in string.gmatch(str, "[^,%s]+") do
+			out[#out + 1] = part
+		end
+		return out
+	end
+
+	local function JoinAuraCsv(parts)
+		return table.concat(parts, ",")
+	end
+
+	local function AuraBarSpellLabel(spellID)
+		spellID = tonumber(spellID)
+		if not spellID then
+			return "?"
+		end
+		if C_Spell and C_Spell.GetSpellName then
+			local ok, name = pcall(C_Spell.GetSpellName, spellID)
+			if ok and name then
+				return string.format("%s (%d)", name, spellID)
+			end
+		end
+		return tostring(spellID)
+	end
+
+	local function ResolveAuraBarDraftSpell(draft)
+		if not draft then
+			return nil
+		end
+		if draft.select and draft.select ~= "custom" then
+			return tonumber(draft.select)
+		end
+		return tonumber(draft.id)
+	end
+
 	local function setSize(tbl, key, value)
 		tbl[key] = value
 		RefreshSkin(addon)
@@ -42,9 +92,381 @@ function ns.SetupOptions(addon)
 		return c.r or 1, c.g or 1, c.b or 1, c.a or 1
 	end
 
+	local ANCHOR_VALUES = {
+		CENTER = L["ANCHOR_CENTER"],
+		TOP = L["ANCHOR_TOP"],
+		BOTTOM = L["ANCHOR_BOTTOM"],
+		LEFT = L["ANCHOR_LEFT"],
+		RIGHT = L["ANCHOR_RIGHT"],
+		TOPLEFT = L["ANCHOR_TOPLEFT"],
+		TOPRIGHT = L["ANCHOR_TOPRIGHT"],
+		BOTTOMLEFT = L["ANCHOR_BOTTOMLEFT"],
+		BOTTOMRIGHT = L["ANCHOR_BOTTOMRIGHT"],
+	}
+
+	local OUTLINE_VALUES = {
+		NONE = L["TEXT_OUTLINE_NONE"],
+		OUTLINE = L["TEXT_OUTLINE_OUTLINE"],
+		THICKOUTLINE = L["TEXT_OUTLINE_THICK"],
+		MONOCHROME = L["TEXT_OUTLINE_MONOCHROME"],
+	}
+
+	local function TextStyle(viewerKey)
+		local root = db()
+		root.textByViewer = root.textByViewer or {}
+		local st = root.textByViewer[viewerKey]
+		if type(st) ~= "table" then
+			st = {}
+			root.textByViewer[viewerKey] = st
+		end
+		return st
+	end
+
+	local function getStyleColor(style, key, fallback)
+		local c = style[key] or fallback
+		return c.r or 1, c.g or 1, c.b or 1, c.a or 1
+	end
+
+	local function setStyleColor(style, key, r, g, b, a)
+		style[key] = { r = r, g = g, b = b, a = a }
+	end
+
+	local function MakeIconTextArgs(viewerKey, orderBase)
+		orderBase = orderBase or 100
+		return {
+			textHeader = {
+				type = "header",
+				name = L["TEXT"],
+				order = orderBase,
+			},
+			textFont = {
+				type = "select",
+				name = L["TEXT_FONT"],
+				order = orderBase + 1,
+				values = function()
+					return addon.Skin.ListMedia("font")
+				end,
+				get = function()
+					local st = TextStyle(viewerKey)
+					return addon.Skin.ResolveFontName(st.textFont or addon.Skin.DefaultFontName())
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).textFont = v
+					RefreshSkin(addon)
+				end,
+			},
+			textOutline = {
+				type = "select",
+				name = L["TEXT_OUTLINE"],
+				order = orderBase + 2,
+				values = OUTLINE_VALUES,
+				get = function()
+					local v = TextStyle(viewerKey).textOutline or "OUTLINE"
+					if v == "" then
+						return "NONE"
+					end
+					return v
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).textOutline = (v == "NONE") and "" or v
+					RefreshSkin(addon)
+				end,
+			},
+			cooldownHeader = {
+				type = "header",
+				name = L["COOLDOWN_TEXT"],
+				order = orderBase + 10,
+			},
+			cooldownFontSize = {
+				type = "range",
+				name = L["COOLDOWN_FONT_SIZE"],
+				order = orderBase + 11,
+				min = 8,
+				max = 32,
+				step = 1,
+				get = function()
+					return TextStyle(viewerKey).cooldownFontSize or 14
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).cooldownFontSize = v
+					RefreshSkin(addon)
+				end,
+			},
+			cooldownTextColor = {
+				type = "color",
+				name = L["COOLDOWN_TEXT_COLOR"],
+				order = orderBase + 12,
+				hasAlpha = true,
+				get = function()
+					return getStyleColor(TextStyle(viewerKey), "cooldownTextColor", { r = 1, g = 1, b = 1, a = 1 })
+				end,
+				set = function(_, r, g, b, a)
+					setStyleColor(TextStyle(viewerKey), "cooldownTextColor", r, g, b, a)
+					RefreshSkin(addon)
+				end,
+			},
+			cooldownTextPoint = {
+				type = "select",
+				name = L["COOLDOWN_TEXT_POINT"],
+				order = orderBase + 13,
+				values = ANCHOR_VALUES,
+				get = function()
+					return TextStyle(viewerKey).cooldownTextPoint or "CENTER"
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).cooldownTextPoint = v
+					RefreshSkin(addon)
+				end,
+			},
+			cooldownTextOffsetX = {
+				type = "range",
+				name = L["COOLDOWN_TEXT_OFFSET_X"],
+				order = orderBase + 14,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(viewerKey).cooldownTextOffsetX or 0
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).cooldownTextOffsetX = v
+					RefreshSkin(addon)
+				end,
+			},
+			cooldownTextOffsetY = {
+				type = "range",
+				name = L["COOLDOWN_TEXT_OFFSET_Y"],
+				order = orderBase + 15,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(viewerKey).cooldownTextOffsetY or 0
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).cooldownTextOffsetY = v
+					RefreshSkin(addon)
+				end,
+			},
+			stackHeader = {
+				type = "header",
+				name = L["STACK_TEXT"],
+				order = orderBase + 20,
+			},
+			stackFontSize = {
+				type = "range",
+				name = L["STACK_FONT_SIZE"],
+				order = orderBase + 21,
+				min = 8,
+				max = 32,
+				step = 1,
+				get = function()
+					return TextStyle(viewerKey).stackFontSize or 12
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).stackFontSize = v
+					RefreshSkin(addon)
+				end,
+			},
+			stackTextColor = {
+				type = "color",
+				name = L["STACK_TEXT_COLOR"],
+				order = orderBase + 22,
+				hasAlpha = true,
+				get = function()
+					return getStyleColor(TextStyle(viewerKey), "stackTextColor", { r = 1, g = 1, b = 1, a = 1 })
+				end,
+				set = function(_, r, g, b, a)
+					setStyleColor(TextStyle(viewerKey), "stackTextColor", r, g, b, a)
+					RefreshSkin(addon)
+				end,
+			},
+			stackTextPoint = {
+				type = "select",
+				name = L["STACK_TEXT_POINT"],
+				order = orderBase + 23,
+				values = ANCHOR_VALUES,
+				get = function()
+					return TextStyle(viewerKey).stackTextPoint or "BOTTOMRIGHT"
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).stackTextPoint = v
+					RefreshSkin(addon)
+				end,
+			},
+			stackTextOffsetX = {
+				type = "range",
+				name = L["STACK_TEXT_OFFSET_X"],
+				order = orderBase + 24,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(viewerKey).stackTextOffsetX or 0
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).stackTextOffsetX = v
+					RefreshSkin(addon)
+				end,
+			},
+			stackTextOffsetY = {
+				type = "range",
+				name = L["STACK_TEXT_OFFSET_Y"],
+				order = orderBase + 25,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(viewerKey).stackTextOffsetY or 0
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).stackTextOffsetY = v
+					RefreshSkin(addon)
+				end,
+			},
+		}
+	end
+
+	local function MakeBuffBarTextArgs(orderBase)
+		orderBase = orderBase or 100
+		local key = "BuffBarCooldownViewer"
+		return {
+			textHeader = {
+				type = "header",
+				name = L["TEXT"],
+				order = orderBase,
+			},
+			textFont = {
+				type = "select",
+				name = L["TEXT_FONT"],
+				order = orderBase + 1,
+				values = function()
+					return addon.Skin.ListMedia("font")
+				end,
+				get = function()
+					local st = TextStyle(key)
+					return addon.Skin.ResolveFontName(st.textFont or addon.Skin.DefaultFontName())
+				end,
+				set = function(_, v)
+					TextStyle(key).textFont = v
+					RefreshSkin(addon)
+				end,
+			},
+			textOutline = {
+				type = "select",
+				name = L["TEXT_OUTLINE"],
+				order = orderBase + 2,
+				values = OUTLINE_VALUES,
+				get = function()
+					local v = TextStyle(key).textOutline or "OUTLINE"
+					if v == "" then
+						return "NONE"
+					end
+					return v
+				end,
+				set = function(_, v)
+					TextStyle(key).textOutline = (v == "NONE") and "" or v
+					RefreshSkin(addon)
+				end,
+			},
+			nameFontSize = {
+				type = "range",
+				name = L["BUFF_BAR_NAME_FONT_SIZE"],
+				order = orderBase + 3,
+				min = 8,
+				max = 32,
+				step = 1,
+				get = function()
+					return TextStyle(key).nameFontSize or 12
+				end,
+				set = function(_, v)
+					TextStyle(key).nameFontSize = v
+					RefreshSkin(addon)
+				end,
+			},
+			nameTextColor = {
+				type = "color",
+				name = L["BUFF_BAR_NAME_COLOR"],
+				order = orderBase + 4,
+				hasAlpha = true,
+				get = function()
+					return getStyleColor(TextStyle(key), "nameTextColor", { r = 1, g = 1, b = 1, a = 1 })
+				end,
+				set = function(_, r, g, b, a)
+					setStyleColor(TextStyle(key), "nameTextColor", r, g, b, a)
+					RefreshSkin(addon)
+				end,
+			},
+			durationFontSize = {
+				type = "range",
+				name = L["BUFF_BAR_DUR_FONT_SIZE"],
+				order = orderBase + 5,
+				min = 8,
+				max = 32,
+				step = 1,
+				get = function()
+					return TextStyle(key).durationFontSize or 14
+				end,
+				set = function(_, v)
+					TextStyle(key).durationFontSize = v
+					RefreshSkin(addon)
+				end,
+			},
+			durationTextColor = {
+				type = "color",
+				name = L["BUFF_BAR_DUR_COLOR"],
+				order = orderBase + 6,
+				hasAlpha = true,
+				get = function()
+					return getStyleColor(TextStyle(key), "durationTextColor", { r = 1, g = 1, b = 1, a = 1 })
+				end,
+				set = function(_, r, g, b, a)
+					setStyleColor(TextStyle(key), "durationTextColor", r, g, b, a)
+					RefreshSkin(addon)
+				end,
+			},
+			nameTextOffsetX = {
+				type = "range",
+				name = L["BUFF_BAR_NAME_OFFSET_X"],
+				order = orderBase + 7,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(key).nameTextOffsetX or 4
+				end,
+				set = function(_, v)
+					TextStyle(key).nameTextOffsetX = v
+					RefreshSkin(addon)
+				end,
+			},
+			durationTextOffsetX = {
+				type = "range",
+				name = L["BUFF_BAR_DUR_OFFSET_X"],
+				order = orderBase + 8,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(key).durationTextOffsetX or -4
+				end,
+				set = function(_, v)
+					TextStyle(key).durationTextOffsetX = v
+					RefreshSkin(addon)
+				end,
+			},
+		}
+	end
+
 	local function OpenBlizzardEditMode()
 		if InCombatLockdown and InCombatLockdown() then
-			print("|cff3bb273GCDM|r: Edit Mode unavailable in combat.")
+			print("|cff3bb273GCDM|r: " .. L["MSG_EDITMODE_COMBAT"])
 			return
 		end
 		local function show()
@@ -77,7 +499,7 @@ function ns.SetupOptions(addon)
 
 	local function OpenBlizzardCooldownViewerSettings()
 		if InCombatLockdown and InCombatLockdown() then
-			print("|cff3bb273GCDM|r: Cooldown Manager settings unavailable in combat.")
+			print("|cff3bb273GCDM|r: " .. L["MSG_CDM_COMBAT"])
 			return
 		end
 		local function show()
@@ -103,7 +525,7 @@ function ns.SetupOptions(addon)
 		if not show() then
 			-- Settings often live next to Edit Mode; open EM as fallback entry point.
 			OpenBlizzardEditMode()
-			print("|cff3bb273GCDM|r: Open Cooldown Viewer from Edit Mode if the panel did not appear.")
+			print("|cff3bb273GCDM|r: " .. L["MSG_CDM_FALLBACK"])
 		end
 	end
 
@@ -604,227 +1026,6 @@ function ns.SetupOptions(addon)
 							},
 						},
 					},
-					text = {
-						type = "group",
-						name = L["TEXT"],
-						order = 3.5,
-						args = {
-							textFont = {
-								type = "select",
-								name = L["TEXT_FONT"],
-								desc = L["TEXT_FONT_DESC"],
-								order = 1,
-								values = function()
-									return addon.Skin.ListMedia("font")
-								end,
-								get = function()
-									return addon.Skin.ResolveFontName(db().textFont or addon.Skin.DefaultFontName())
-								end,
-								set = function(_, v)
-									db().textFont = v
-									RefreshSkin(addon)
-								end,
-							},
-							textOutline = {
-								type = "select",
-								name = L["TEXT_OUTLINE"],
-								order = 2,
-								values = {
-									NONE = L["TEXT_OUTLINE_NONE"],
-									OUTLINE = L["TEXT_OUTLINE_OUTLINE"],
-									THICKOUTLINE = L["TEXT_OUTLINE_THICK"],
-									MONOCHROME = L["TEXT_OUTLINE_MONOCHROME"],
-								},
-								get = function()
-									local v = db().textOutline or "OUTLINE"
-									if v == "" then
-										return "NONE"
-									end
-									return v
-								end,
-								set = function(_, v)
-									db().textOutline = (v == "NONE") and "" or v
-									RefreshSkin(addon)
-								end,
-							},
-							cooldownHeader = {
-								type = "header",
-								name = L["COOLDOWN_TEXT"],
-								order = 10,
-							},
-							cooldownFontSize = {
-								type = "range",
-								name = L["COOLDOWN_FONT_SIZE"],
-								order = 11,
-								min = 8,
-								max = 32,
-								step = 1,
-								get = function()
-									return db().cooldownFontSize or 14
-								end,
-								set = function(_, v)
-									db().cooldownFontSize = v
-									RefreshSkin(addon)
-								end,
-							},
-							cooldownTextColor = {
-								type = "color",
-								name = L["COOLDOWN_TEXT_COLOR"],
-								order = 12,
-								hasAlpha = true,
-								get = function()
-									return getColor("cooldownTextColor", { r = 1, g = 1, b = 1, a = 1 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("cooldownTextColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
-							cooldownTextPoint = {
-								type = "select",
-								name = L["COOLDOWN_TEXT_POINT"],
-								order = 13,
-								values = {
-									CENTER = L["ANCHOR_CENTER"],
-									TOP = L["ANCHOR_TOP"],
-									BOTTOM = L["ANCHOR_BOTTOM"],
-									LEFT = L["ANCHOR_LEFT"],
-									RIGHT = L["ANCHOR_RIGHT"],
-									TOPLEFT = L["ANCHOR_TOPLEFT"],
-									TOPRIGHT = L["ANCHOR_TOPRIGHT"],
-									BOTTOMLEFT = L["ANCHOR_BOTTOMLEFT"],
-									BOTTOMRIGHT = L["ANCHOR_BOTTOMRIGHT"],
-								},
-								get = function()
-									return db().cooldownTextPoint or "CENTER"
-								end,
-								set = function(_, v)
-									db().cooldownTextPoint = v
-									RefreshSkin(addon)
-								end,
-							},
-							cooldownTextOffsetX = {
-								type = "range",
-								name = L["COOLDOWN_TEXT_OFFSET_X"],
-								order = 14,
-								min = -40,
-								max = 40,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().cooldownTextOffsetX or 0
-								end,
-								set = function(_, v)
-									db().cooldownTextOffsetX = v
-									RefreshSkin(addon)
-								end,
-							},
-							cooldownTextOffsetY = {
-								type = "range",
-								name = L["COOLDOWN_TEXT_OFFSET_Y"],
-								order = 15,
-								min = -40,
-								max = 40,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().cooldownTextOffsetY or 0
-								end,
-								set = function(_, v)
-									db().cooldownTextOffsetY = v
-									RefreshSkin(addon)
-								end,
-							},
-							stackHeader = {
-								type = "header",
-								name = L["STACK_TEXT"],
-								order = 20,
-							},
-							stackFontSize = {
-								type = "range",
-								name = L["STACK_FONT_SIZE"],
-								order = 21,
-								min = 8,
-								max = 32,
-								step = 1,
-								get = function()
-									return db().stackFontSize or 12
-								end,
-								set = function(_, v)
-									db().stackFontSize = v
-									RefreshSkin(addon)
-								end,
-							},
-							stackTextColor = {
-								type = "color",
-								name = L["STACK_TEXT_COLOR"],
-								order = 22,
-								hasAlpha = true,
-								get = function()
-									return getColor("stackTextColor", { r = 1, g = 1, b = 1, a = 1 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("stackTextColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
-							stackTextPoint = {
-								type = "select",
-								name = L["STACK_TEXT_POINT"],
-								order = 23,
-								values = {
-									CENTER = L["ANCHOR_CENTER"],
-									TOP = L["ANCHOR_TOP"],
-									BOTTOM = L["ANCHOR_BOTTOM"],
-									LEFT = L["ANCHOR_LEFT"],
-									RIGHT = L["ANCHOR_RIGHT"],
-									TOPLEFT = L["ANCHOR_TOPLEFT"],
-									TOPRIGHT = L["ANCHOR_TOPRIGHT"],
-									BOTTOMLEFT = L["ANCHOR_BOTTOMLEFT"],
-									BOTTOMRIGHT = L["ANCHOR_BOTTOMRIGHT"],
-								},
-								get = function()
-									return db().stackTextPoint or "BOTTOMRIGHT"
-								end,
-								set = function(_, v)
-									db().stackTextPoint = v
-									RefreshSkin(addon)
-								end,
-							},
-							stackTextOffsetX = {
-								type = "range",
-								name = L["STACK_TEXT_OFFSET_X"],
-								order = 24,
-								min = -40,
-								max = 40,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().stackTextOffsetX or 0
-								end,
-								set = function(_, v)
-									db().stackTextOffsetX = v
-									RefreshSkin(addon)
-								end,
-							},
-							stackTextOffsetY = {
-								type = "range",
-								name = L["STACK_TEXT_OFFSET_Y"],
-								order = 25,
-								min = -40,
-								max = 40,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().stackTextOffsetY or 0
-								end,
-								set = function(_, v)
-									db().stackTextOffsetY = v
-									RefreshSkin(addon)
-								end,
-							},
-						},
-					},
 					glow = {
 						type = "group",
 						name = L["GLOW"],
@@ -1026,7 +1227,7 @@ function ns.SetupOptions(addon)
 									return s ~= "solid" and s ~= "SharedMedia"
 								end,
 								get = function()
-									return db().buffBarBackgroundTexture or db().buffBarTexture or "Solid"
+									return db().buffBarBackgroundTexture or "Solid"
 								end,
 								set = function(_, v)
 									db().buffBarBackgroundTexture = v
@@ -1099,6 +1300,20 @@ function ns.SetupOptions(addon)
 								end,
 								set = function(_, v)
 									db().buffBarShowDuration = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							barSmoothProgress = {
+								type = "toggle",
+								name = L["BAR_SMOOTH"],
+								desc = L["BAR_SMOOTH_DESC"],
+								order = 8.5,
+								width = "full",
+								get = function()
+									return db().barSmoothProgress == true
+								end,
+								set = function(_, v)
+									db().barSmoothProgress = v and true or false
 									RefreshSkin(addon)
 								end,
 							},
@@ -1185,6 +1400,20 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							barSmoothProgress = {
+								type = "toggle",
+								name = L["BAR_SMOOTH"],
+								desc = L["BAR_SMOOTH_DESC"],
+								order = 3.2,
+								width = "full",
+								get = function()
+									return db().barSmoothProgress == true
+								end,
+								set = function(_, v)
+									db().barSmoothProgress = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
 							powerBarHeight = {
 								type = "range",
 								name = L["POWER_BAR_HEIGHT"],
@@ -1250,6 +1479,38 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							powerBarFont = {
+								type = "select",
+								name = L["TEXT_FONT"],
+								order = 7.4,
+								values = function()
+									return addon.Skin.ListMedia("font")
+								end,
+								get = function()
+									return addon.Skin.ResolveFontName(db().powerBarFont or addon.Skin.DefaultFontName())
+								end,
+								set = function(_, v)
+									db().powerBarFont = v
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTextOutline = {
+								type = "select",
+								name = L["TEXT_OUTLINE"],
+								order = 7.5,
+								values = OUTLINE_VALUES,
+								get = function()
+									local v = db().powerBarTextOutline or "OUTLINE"
+									if v == "" then
+										return "NONE"
+									end
+									return v
+								end,
+								set = function(_, v)
+									db().powerBarTextOutline = (v == "NONE") and "" or v
+									RefreshSkin(addon)
+								end,
+							},
 							powerBarTexture = {
 								type = "select",
 								name = L["POWER_BAR_TEXTURE"],
@@ -1273,7 +1534,7 @@ function ns.SetupOptions(addon)
 									return addon.Skin.ListMedia("statusbar")
 								end,
 								get = function()
-									return db().powerBarBackgroundTexture or db().powerBarTexture or "Solid"
+									return db().powerBarBackgroundTexture or "Solid"
 								end,
 								set = function(_, v)
 									db().powerBarBackgroundTexture = v
@@ -1335,11 +1596,14 @@ function ns.SetupOptions(addon)
 								values = {
 									class = L["POWER_BAR_MODE_CLASS"],
 									solid = L["POWER_BAR_MODE_SOLID"],
-									curve = L["POWER_BAR_MODE_CURVE"],
 								},
 								get = function()
 									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class"
+									local mode = addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class"
+									if mode == "curve" then
+										return "class"
+									end
+									return mode
 								end,
 								set = function(_, v)
 									local cls = db().powerBarEditClass or "DEFAULT"
@@ -1368,192 +1632,6 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
-							powerBarCurveMode = {
-								type = "select",
-								name = L["POWER_BAR_CURVE_MODE"],
-								desc = L["POWER_BAR_CURVE_MODE_DESC"],
-								order = 13,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
-								end,
-								values = {
-									absolute = L["POWER_BAR_CURVE_ABS"],
-									percent = L["POWER_BAR_CURVE_PCT"],
-								},
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).curveMode or "absolute"
-								end,
-								set = function(_, v)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "curveMode", v)
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarCurvePoints = {
-								type = "input",
-								name = L["POWER_BAR_CURVE_POINTS"],
-								desc = L["POWER_BAR_CURVE_POINTS_DESC"],
-								order = 14,
-								width = "full",
-								multiline = true,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
-								end,
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).curvePointsStr or ""
-								end,
-								set = function(_, v)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "curvePointsStr", v or "")
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarPresetOverflow = {
-								type = "execute",
-								name = L["POWER_BAR_PRESET_OVERFLOW"],
-								order = 14.5,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
-								end,
-								func = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "curveMode", "absolute")
-									addon.Skin.SetPowerBarProfileField(
-										db(),
-										cls,
-										"curvePointsStr",
-										"0:1,0.85,0.1,1|100:1,0.85,0.1,1|100.01:1,1,1,1|200:1,1,1,1"
-									)
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarPresetPct = {
-								type = "execute",
-								name = L["POWER_BAR_PRESET_PCT"],
-								order = 14.6,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
-								end,
-								func = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "curveMode", "percent")
-									addon.Skin.SetPowerBarProfileField(
-										db(),
-										cls,
-										"curvePointsStr",
-										"0:1,0.2,0.2,1|0.35:1,0.85,0.2,1|0.7:0.2,0.9,0.3,1|1:1,1,1,1"
-									)
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarTickMode = {
-								type = "select",
-								name = L["POWER_BAR_TICK_MODE"],
-								order = 15,
-								values = {
-									none = L["POWER_BAR_TICK_NONE"],
-									equal = L["POWER_BAR_TICK_EQUAL"],
-									values = L["POWER_BAR_TICK_VALUES"],
-								},
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none"
-								end,
-								set = function(_, v)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "tickMode", v)
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarTickCount = {
-								type = "range",
-								name = L["POWER_BAR_TICK_COUNT"],
-								order = 16,
-								min = 2,
-								max = 20,
-								step = 1,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") ~= "equal"
-								end,
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).tickCount or 4
-								end,
-								set = function(_, v)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "tickCount", v)
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarTickAt = {
-								type = "input",
-								name = L["POWER_BAR_TICK_AT"],
-								desc = L["POWER_BAR_TICK_AT_DESC"],
-								order = 17,
-								width = "full",
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") ~= "values"
-								end,
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).tickAtStr or ""
-								end,
-								set = function(_, v)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "tickAtStr", v or "")
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarTickMax = {
-								type = "range",
-								name = L["POWER_BAR_TICK_MAX"],
-								order = 18,
-								min = 1,
-								max = 500,
-								step = 1,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") ~= "values"
-								end,
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return addon.Skin.GetPowerBarProfile(db(), cls).tickMax or 100
-								end,
-								set = function(_, v)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "tickMax", v)
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarTickColor = {
-								type = "color",
-								name = L["POWER_BAR_TICK_COLOR"],
-								order = 19,
-								hasAlpha = true,
-								disabled = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") == "none"
-								end,
-								get = function()
-									local cls = db().powerBarEditClass or "DEFAULT"
-									local c = addon.Skin.GetPowerBarProfile(db(), cls).tickColor
-										or { r = 1, g = 1, b = 1, a = 0.55 }
-									return c.r or 1, c.g or 1, c.b or 1, c.a or 1
-								end,
-								set = function(_, r, g, b, a)
-									local cls = db().powerBarEditClass or "DEFAULT"
-									addon.Skin.SetPowerBarProfileField(db(), cls, "tickColor", { r = r, g = g, b = b, a = a })
-									RefreshSkin(addon)
-								end,
-							},
 						},
 					},
 					auraBars = {
@@ -1576,91 +1654,266 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
-							auraBarSpellIDs = {
-								type = "input",
+							auraBarDurHeader = {
+								type = "header",
 								name = L["AURA_BARS_SPELLS"],
-								desc = L["AURA_BARS_SPELLS_DESC"],
 								order = 2,
-								width = "full",
-								multiline = false,
+							},
+							auraBarDurSelect = {
+								type = "select",
+								name = L["AURA_SOUNDS_SPELL_SELECT"],
+								desc = L["AURA_SOUNDS_SPELL_SELECT_DESC"],
+								order = 2.1,
+								values = function()
+									return addon:GetAuraSoundSpellValues()
+								end,
 								get = function()
-									return db().auraBarSpellIDs or ""
+									local d = AuraBarDurDraft()
+									local sel = d.select
+									if sel and sel ~= "custom" then
+										return sel
+									end
+									if d.id and d.id ~= "" then
+										local values = addon:GetAuraSoundSpellValues()
+										if values[tostring(d.id)] then
+											return tostring(d.id)
+										end
+									end
+									return "custom"
 								end,
 								set = function(_, v)
-									db().auraBarSpellIDs = v or ""
-									RefreshLayout(addon)
-									RefreshSkin(addon)
+									local d = AuraBarDurDraft()
+									d.select = v
+									if v ~= "custom" then
+										d.id = v
+									end
 								end,
 							},
-							auraAppSpellIDs = {
+							auraBarDurCustom = {
 								type = "input",
-								name = L["AURA_APP_SPELLS"],
-								desc = L["AURA_APP_SPELLS_DESC"],
-								order = 2.5,
-								width = "full",
-								multiline = false,
+								name = L["AURA_SOUNDS_SPELL"],
+								desc = L["AURA_SOUNDS_SPELL_DESC"],
+								order = 2.15,
+								hidden = function()
+									return (AuraBarDurDraft().select or "custom") ~= "custom"
+								end,
 								get = function()
-									return db().auraAppSpellIDs or ""
+									return AuraBarDurDraft().id or ""
 								end,
 								set = function(_, v)
-									db().auraAppSpellIDs = v or ""
-									RefreshLayout(addon)
-									RefreshSkin(addon)
+									AuraBarDurDraft().id = v or ""
 								end,
 							},
-							auraSoundLimitNote = {
+							auraBarDurAdd = {
+								type = "execute",
+								name = L["AURA_BARS_ADD"],
+								order = 2.2,
+								func = function()
+									local id = ResolveAuraBarDraftSpell(AuraBarDurDraft())
+									if not id then
+										return
+									end
+									local parts = SplitAuraCsv(db().auraBarSpellIDs)
+									local key = tostring(id)
+									for i = 1, #parts do
+										if parts[i] == key then
+											return
+										end
+									end
+									parts[#parts + 1] = key
+									db().auraBarSpellIDs = JoinAuraCsv(parts)
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+								end,
+							},
+							auraBarDurList = {
+								type = "multiselect",
+								name = L["AURA_BARS_LIST"],
+								desc = L["AURA_BARS_LIST_DESC"],
+								order = 2.3,
+								values = function()
+									local values = {}
+									local parts = SplitAuraCsv(db().auraBarSpellIDs)
+									for i = 1, #parts do
+										local id = tonumber(parts[i])
+										if id then
+											values[tostring(id)] = AuraBarSpellLabel(id)
+										end
+									end
+									return values
+								end,
+								get = function(_, key)
+									local parts = SplitAuraCsv(db().auraBarSpellIDs)
+									for i = 1, #parts do
+										if parts[i] == tostring(key) then
+											return true
+										end
+									end
+									return false
+								end,
+								set = function(_, key, checked)
+									if checked then
+										return
+									end
+									local parts = SplitAuraCsv(db().auraBarSpellIDs)
+									local out = {}
+									local drop = tostring(key)
+									for i = 1, #parts do
+										if parts[i] ~= drop then
+											out[#out + 1] = parts[i]
+										end
+									end
+									db().auraBarSpellIDs = JoinAuraCsv(out)
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+								end,
+							},
+							auraBarAppHeader = {
+								type = "header",
+								name = L["AURA_APP_SPELLS"],
+								order = 2.4,
+							},
+							auraBarAppSelect = {
+								type = "select",
+								name = L["AURA_SOUNDS_SPELL_SELECT"],
+								desc = L["AURA_SOUNDS_SPELL_SELECT_DESC"],
+								order = 2.45,
+								values = function()
+									return addon:GetAuraSoundSpellValues()
+								end,
+								get = function()
+									local d = AuraBarAppDraft()
+									local sel = d.select
+									if sel and sel ~= "custom" then
+										return sel
+									end
+									if d.id and d.id ~= "" then
+										local values = addon:GetAuraSoundSpellValues()
+										if values[tostring(d.id)] then
+											return tostring(d.id)
+										end
+									end
+									return "custom"
+								end,
+								set = function(_, v)
+									local d = AuraBarAppDraft()
+									d.select = v
+									if v ~= "custom" then
+										d.id = v
+									end
+								end,
+							},
+							auraBarAppCustom = {
+								type = "input",
+								name = L["AURA_SOUNDS_SPELL"],
+								desc = L["AURA_SOUNDS_SPELL_DESC"],
+								order = 2.5,
+								hidden = function()
+									return (AuraBarAppDraft().select or "custom") ~= "custom"
+								end,
+								get = function()
+									return AuraBarAppDraft().id or ""
+								end,
+								set = function(_, v)
+									AuraBarAppDraft().id = v or ""
+								end,
+							},
+							auraBarAppMax = {
+								type = "input",
+								name = L["AURA_APP_MAX"],
+								desc = L["AURA_APP_MAX_DESC"],
+								order = 2.52,
+								get = function()
+									return AuraBarAppDraft().max or "4"
+								end,
+								set = function(_, v)
+									AuraBarAppDraft().max = v or "4"
+								end,
+							},
+							auraBarAppAdd = {
+								type = "execute",
+								name = L["AURA_BARS_ADD"],
+								order = 2.55,
+								func = function()
+									local id = ResolveAuraBarDraftSpell(AuraBarAppDraft())
+									if not id then
+										return
+									end
+									local maxN = tonumber(AuraBarAppDraft().max) or 4
+									if maxN < 1 then
+										maxN = 4
+									end
+									local token = string.format("%d:%d", id, maxN)
+									local parts = SplitAuraCsv(db().auraAppSpellIDs)
+									local idKey = tostring(id)
+									local out = {}
+									for i = 1, #parts do
+										local pid = string.match(parts[i], "^(%d+)")
+										if pid ~= idKey then
+											out[#out + 1] = parts[i]
+										end
+									end
+									out[#out + 1] = token
+									db().auraAppSpellIDs = JoinAuraCsv(out)
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+								end,
+							},
+							auraBarAppList = {
+								type = "multiselect",
+								name = L["AURA_APP_LIST"],
+								desc = L["AURA_BARS_LIST_DESC"],
+								order = 2.58,
+								values = function()
+									local values = {}
+									local parts = SplitAuraCsv(db().auraAppSpellIDs)
+									for i = 1, #parts do
+										local id, maxS = string.match(parts[i], "^(%d+):(%d+)$")
+										if not id then
+											id = string.match(parts[i], "^(%d+)$")
+											maxS = "4"
+										end
+										if id then
+											values[parts[i]] = string.format("%s  ·  max %s", AuraBarSpellLabel(tonumber(id)), maxS)
+										end
+									end
+									return values
+								end,
+								get = function(_, key)
+									local parts = SplitAuraCsv(db().auraAppSpellIDs)
+									for i = 1, #parts do
+										if parts[i] == tostring(key) then
+											return true
+										end
+									end
+									return false
+								end,
+								set = function(_, key, checked)
+									if checked then
+										return
+									end
+									local parts = SplitAuraCsv(db().auraAppSpellIDs)
+									local out = {}
+									local drop = tostring(key)
+									for i = 1, #parts do
+										if parts[i] ~= drop then
+											out[#out + 1] = parts[i]
+										end
+									end
+									db().auraAppSpellIDs = JoinAuraCsv(out)
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+								end,
+							},
+							auraSoundTabHint = {
 								type = "description",
-								name = L["AURA_SOUND_LIMIT_DESC"],
+								name = L["AURA_BARS_SOUND_HINT"],
 								order = 2.6,
 								fontSize = "medium",
-							},
-							auraSoundOnApply = {
-								type = "toggle",
-								name = L["AURA_SOUND_APPLY"],
-								order = 2.7,
-								get = function()
-									return db().auraSoundOnApply == true
-								end,
-								set = function(_, v)
-									db().auraSoundOnApply = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							auraSoundOnStack = {
-								type = "toggle",
-								name = L["AURA_SOUND_STACK"],
-								order = 2.8,
-								get = function()
-									return db().auraSoundOnStack == true
-								end,
-								set = function(_, v)
-									db().auraSoundOnStack = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							auraSoundOnRemove = {
-								type = "toggle",
-								name = L["AURA_SOUND_REMOVE"],
-								order = 2.9,
-								get = function()
-									return db().auraSoundOnRemove == true
-								end,
-								set = function(_, v)
-									db().auraSoundOnRemove = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							auraSoundKitID = {
-								type = "input",
-								name = L["AURA_SOUND_KIT"],
-								order = 2.95,
-								get = function()
-									return tostring(db().auraSoundKitID or 0)
-								end,
-								set = function(_, v)
-									db().auraSoundKitID = tonumber(v) or 0
-									RefreshSkin(addon)
-								end,
 							},
 							auraBarHeight = {
 								type = "range",
@@ -1691,6 +1944,79 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							auraBarShowDuration = {
+								type = "toggle",
+								name = L["AURA_BAR_SHOW_DURATION"],
+								desc = L["AURA_BAR_SHOW_DURATION_DESC"],
+								order = 3.55,
+								get = function()
+									return db().auraBarShowDuration ~= false
+								end,
+								set = function(_, v)
+									db().auraBarShowDuration = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarFontSize = {
+								type = "range",
+								name = L["AURA_BAR_FONT_SIZE"],
+								order = 3.56,
+								min = 8,
+								max = 28,
+								step = 1,
+								get = function()
+									return db().auraBarFontSize or 10
+								end,
+								set = function(_, v)
+									db().auraBarFontSize = v
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarFont = {
+								type = "select",
+								name = L["TEXT_FONT"],
+								order = 3.562,
+								values = function()
+									return addon.Skin.ListMedia("font")
+								end,
+								get = function()
+									return addon.Skin.ResolveFontName(db().auraBarFont or addon.Skin.DefaultFontName())
+								end,
+								set = function(_, v)
+									db().auraBarFont = v
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarTextOutline = {
+								type = "select",
+								name = L["TEXT_OUTLINE"],
+								order = 3.565,
+								values = OUTLINE_VALUES,
+								get = function()
+									local v = db().auraBarTextOutline or "OUTLINE"
+									if v == "" then
+										return "NONE"
+									end
+									return v
+								end,
+								set = function(_, v)
+									db().auraBarTextOutline = (v == "NONE") and "" or v
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarTextColor = {
+								type = "color",
+								name = L["AURA_BAR_TEXT_COLOR"],
+								order = 3.57,
+								hasAlpha = true,
+								get = function()
+									return getColor("auraBarTextColor", { r = 1, g = 1, b = 1, a = 1 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("auraBarTextColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
 							auraBarShowTicks = {
 								type = "toggle",
 								name = L["AURA_BAR_SHOW_TICKS"],
@@ -1700,6 +2026,20 @@ function ns.SetupOptions(addon)
 								end,
 								set = function(_, v)
 									db().auraBarShowTicks = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							barSmoothProgress = {
+								type = "toggle",
+								name = L["BAR_SMOOTH"],
+								desc = L["BAR_SMOOTH_DESC"],
+								order = 3.65,
+								width = "full",
+								get = function()
+									return db().barSmoothProgress == true
+								end,
+								set = function(_, v)
+									db().barSmoothProgress = v and true or false
 									RefreshSkin(addon)
 								end,
 							},
@@ -1767,6 +2107,21 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							auraBarBackgroundTexture = {
+								type = "select",
+								name = L["AURA_BAR_BG_TEXTURE"],
+								order = 7.5,
+								values = function()
+									return addon.Skin.ListMedia("statusbar")
+								end,
+								get = function()
+									return db().auraBarBackgroundTexture or "Solid"
+								end,
+								set = function(_, v)
+									db().auraBarBackgroundTexture = v
+									RefreshSkin(addon)
+								end,
+							},
 							auraBarColor = {
 								type = "color",
 								name = L["AURA_BAR_COLOR"],
@@ -1814,22 +2169,488 @@ function ns.SetupOptions(addon)
 		},
 	}
 
-	-- Bars as top-level tab (Platynator-style fewer root tabs).
+	-- Reorganize root tabs by CDM block (not by theme: layout/text/border).
 	local skinArgs = options.args.skin.args
-	options.args.bars = {
+	local layoutArgs = skinArgs.layout.args
+	local sizeArgs = skinArgs.sizes.args
+	local posArgs = skinArgs.positions.args
+
+	local function takePos(key, orderBase)
+		orderBase = orderBase or 50
+		local enabled = posArgs[key .. "Enabled"]
+		local point = posArgs[key .. "Point"]
+		local x = posArgs[key .. "X"]
+		local y = posArgs[key .. "Y"]
+		if enabled then
+			enabled.order = orderBase + 1
+		end
+		if point then
+			point.order = orderBase + 2
+		end
+		if x then
+			x.order = orderBase + 3
+		end
+		if y then
+			y.order = orderBase + 4
+		end
+		return {
+			posHeader = {
+				type = "header",
+				name = L["POSITIONS"],
+				order = orderBase,
+			},
+			posHint = {
+				type = "description",
+				name = L["POSITIONS_DESC"],
+				order = orderBase + 0.5,
+				fontSize = "medium",
+			},
+			posEnabled = enabled,
+			posPoint = point,
+			posX = x,
+			posY = y,
+		}
+	end
+
+	local function mergeArgs(...)
+		local out = {}
+		for i = 1, select("#", ...) do
+			local t = select(i, ...)
+			if t then
+				for k, v in pairs(t) do
+					out[k] = v
+				end
+			end
+		end
+		return out
+	end
+
+	-- Shared icon chrome в†’ General
+	local generalArgs = options.args.general.args
+	generalArgs.iconStyleHeader = {
+		type = "header",
+		name = L["ICON_STYLE"],
+		order = 20,
+	}
+	generalArgs.pixelSnap = layoutArgs.pixelSnap
+	if generalArgs.pixelSnap then
+		generalArgs.pixelSnap.order = 21
+	end
+	do
+		local border = skinArgs.border.args
+		for k, v in pairs(border) do
+			v.order = 30 + (v.order or 0)
+			generalArgs["border_" .. k] = v
+		end
+		local glow = skinArgs.glow.args
+		for k, v in pairs(glow) do
+			v.order = 80 + (v.order or 0)
+			generalArgs["glow_" .. k] = v
+		end
+	end
+
+	-- Per-block text lives under Essential / Utility / Buff / Buff bars (no global Text tab).
+
+	if sizeArgs.essW then
+		sizeArgs.essW.name = L["WIDTH"]
+		sizeArgs.essW.order = 11
+	end
+	if sizeArgs.essH then
+		sizeArgs.essH.name = L["HEIGHT"]
+		sizeArgs.essH.order = 12
+	end
+	if sizeArgs.ess2W then
+		sizeArgs.ess2W.name = L["SIZE_ESSENTIAL_ROW2"] .. " — " .. L["WIDTH"]
+		sizeArgs.ess2W.order = 13
+	end
+	if sizeArgs.ess2H then
+		sizeArgs.ess2H.name = L["SIZE_ESSENTIAL_ROW2"] .. " — " .. L["HEIGHT"]
+		sizeArgs.ess2H.order = 14
+	end
+	if layoutArgs.spacing then
+		layoutArgs.spacing.order = 5
+	end
+	if layoutArgs.maxIconsPerRow then
+		layoutArgs.maxIconsPerRow.order = 6
+	end
+
+	local V = addon.CONST.VIEWERS
+	options.args.essential = {
 		type = "group",
-		name = L["BARS"],
+		name = L["BLOCK_ESSENTIAL"],
+		order = 2,
+		args = mergeArgs({
+			layoutHeader = { type = "header", name = L["LAYOUT"], order = 1 },
+			spacing = layoutArgs.spacing,
+			maxIconsPerRow = layoutArgs.maxIconsPerRow,
+			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
+			essW = sizeArgs.essW,
+			essH = sizeArgs.essH,
+			ess2W = sizeArgs.ess2W,
+			ess2H = sizeArgs.ess2H,
+		}, takePos("essential", 50), MakeIconTextArgs(V.ESSENTIAL, 100)),
+	}
+
+	if sizeArgs.utilW then
+		sizeArgs.utilW.name = L["WIDTH"]
+		sizeArgs.utilW.order = 11
+	end
+	if sizeArgs.utilH then
+		sizeArgs.utilH.name = L["HEIGHT"]
+		sizeArgs.utilH.order = 12
+	end
+	options.args.utility = {
+		type = "group",
+		name = L["BLOCK_UTILITY"],
 		order = 3,
-		childGroups = "tab",
-		args = {
-			buffBar = skinArgs.buffBar,
-			powerBar = skinArgs.powerBar,
-			auraBars = skinArgs.auraBars,
+		args = mergeArgs({
+			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
+			utilW = sizeArgs.utilW,
+			utilH = sizeArgs.utilH,
+		}, takePos("utility", 50), MakeIconTextArgs(V.UTILITY, 100)),
+	}
+
+	if sizeArgs.buffW then
+		sizeArgs.buffW.name = L["WIDTH"]
+		sizeArgs.buffW.order = 11
+	end
+	if sizeArgs.buffH then
+		sizeArgs.buffH.name = L["HEIGHT"]
+		sizeArgs.buffH.order = 12
+	end
+	options.args.buff = {
+		type = "group",
+		name = L["BLOCK_BUFF"],
+		order = 4,
+		args = mergeArgs({
+			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
+			buffW = sizeArgs.buffW,
+			buffH = sizeArgs.buffH,
+		}, takePos("buff", 50), MakeIconTextArgs(V.BUFF, 100)),
+	}
+
+	options.args.buffBar = {
+		type = "group",
+		name = L["BLOCK_BUFF_BAR"],
+		order = 5,
+		args = mergeArgs(takePos("buffBar", 1), skinArgs.buffBar.args, MakeBuffBarTextArgs(100)),
+	}
+	for k, v in pairs(options.args.buffBar.args) do
+		if type(k) == "string" and k:sub(1, 3) ~= "pos" and type(v) == "table" and v.order and v.order < 100 then
+			v.order = 20 + (v.order or 0)
+		end
+	end
+
+	options.args.powerBar = {
+		type = "group",
+		name = L["BLOCK_POWER"],
+		order = 6,
+		args = skinArgs.powerBar.args,
+	}
+
+	options.args.auraBars = {
+		type = "group",
+		name = L["BLOCK_AURA"],
+		order = 7,
+		args = skinArgs.auraBars.args,
+	}
+
+	local function SpellLabel(spellID)
+		spellID = tonumber(spellID)
+		if not spellID then
+			return "?"
+		end
+		if C_Spell and C_Spell.GetSpellName then
+			local ok, name = pcall(C_Spell.GetSpellName, spellID)
+			if ok and name then
+				return string.format("%s (%d)", name, spellID)
+			end
+		end
+		return tostring(spellID)
+	end
+
+	local function EventLabel(event)
+		if event == "stack" then
+			return L["AURA_SOUNDS_EVENT_STACK"]
+		end
+		if event == "remove" then
+			return L["AURA_SOUNDS_EVENT_REMOVE"]
+		end
+		return L["AURA_SOUNDS_EVENT_APPLY"]
+	end
+
+	local function UnitLabel(unit)
+		if unit == "target" then
+			return L["AURA_SOUNDS_UNIT_TARGET"]
+		end
+		if unit == "focus" then
+			return L["AURA_SOUNDS_UNIT_FOCUS"]
+		end
+		return L["AURA_SOUNDS_UNIT_PLAYER"]
+	end
+
+	local function Draft()
+		local d = db().auraSoundDraft
+		if type(d) ~= "table" then
+			d = {
+				spellSelect = "custom",
+				spellID = "",
+				unit = "player",
+				event = "apply",
+				soundKey = "kit:878",
+			}
+			db().auraSoundDraft = d
+		end
+		return d
+	end
+
+	local auraSoundsArgs
+	local function RebuildAuraSoundRuleArgs()
+		if not auraSoundsArgs then
+			return
+		end
+		for k in pairs(auraSoundsArgs) do
+			if type(k) == "string" and string.sub(k, 1, 5) == "rule_" then
+				auraSoundsArgs[k] = nil
+			end
+		end
+		auraSoundsArgs.rulesEmpty = nil
+		local rules = db().auraSoundRules or {}
+		if #rules == 0 then
+			auraSoundsArgs.rulesEmpty = {
+				type = "description",
+				name = L["AURA_SOUNDS_EMPTY"],
+				order = 50,
+				fontSize = "medium",
+			}
+			return
+		end
+		for i = 1, #rules do
+			local rule = rules[i]
+			local idx = i
+			local kit = tonumber(rule.soundKitID) or 0
+			local soundLabel = rule.soundKey or (kit > 0 and ("kit:" .. kit) or "default")
+			auraSoundsArgs["rule_" .. i] = {
+				type = "group",
+				name = string.format(
+					"#%d  %s  В·  %s  В·  %s  В·  %s",
+					i,
+					SpellLabel(rule.spellID),
+					UnitLabel(rule.unit),
+					EventLabel(rule.event),
+					soundLabel
+				),
+				order = 50 + i,
+				inline = true,
+				args = {
+					test = {
+						type = "execute",
+						name = L["AURA_SOUNDS_TEST"],
+						order = 1,
+						width = "half",
+						func = function()
+							addon:PlayAuraSoundChoice(soundLabel)
+						end,
+					},
+					del = {
+						type = "execute",
+						name = L["AURA_SOUNDS_DELETE"],
+						order = 2,
+						width = "half",
+						func = function()
+							addon:RemoveAuraSoundRule(idx)
+							RebuildAuraSoundRuleArgs()
+							LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+						end,
+					},
+				},
+			}
+		end
+	end
+
+	auraSoundsArgs = {
+		hint = {
+			type = "description",
+			name = L["AURA_SOUNDS_DESC"],
+			order = 1,
+			fontSize = "medium",
+		},
+		enabled = {
+			type = "toggle",
+			name = L["AURA_SOUNDS_ENABLED"],
+			order = 2,
+			width = "full",
+			get = function()
+				return db().auraSoundEnabled ~= false
+			end,
+			set = function(_, v)
+				db().auraSoundEnabled = v and true or false
+				RefreshSkin(addon)
+			end,
+		},
+		defaultKit = {
+			type = "input",
+			name = L["AURA_SOUNDS_DEFAULT_KIT"],
+			desc = L["AURA_SOUNDS_DEFAULT_KIT_DESC"],
+			order = 3,
+			get = function()
+				return tostring(db().auraSoundDefaultKitID or 878)
+			end,
+			set = function(_, v)
+				db().auraSoundDefaultKitID = tonumber(v) or 878
+				RefreshSkin(addon)
+			end,
+		},
+		draftHeader = {
+			type = "header",
+			name = L["AURA_SOUNDS_ADD"],
+			order = 10,
+		},
+		draftSpellSelect = {
+			type = "select",
+			name = L["AURA_SOUNDS_SPELL_SELECT"],
+			desc = L["AURA_SOUNDS_SPELL_SELECT_DESC"],
+			order = 11,
+			values = function()
+				return addon:GetAuraSoundSpellValues()
+			end,
+			get = function()
+				local d = Draft()
+				local sel = d.spellSelect
+				if sel and sel ~= "custom" then
+					return sel
+				end
+				if d.spellID and d.spellID ~= "" then
+					local values = addon:GetAuraSoundSpellValues()
+					if values[tostring(d.spellID)] then
+						return tostring(d.spellID)
+					end
+				end
+				return "custom"
+			end,
+			set = function(_, v)
+				local d = Draft()
+				d.spellSelect = v
+				if v ~= "custom" then
+					d.spellID = v
+				end
+			end,
+		},
+		draftSpell = {
+			type = "input",
+			name = L["AURA_SOUNDS_SPELL"],
+			desc = L["AURA_SOUNDS_SPELL_DESC"],
+			order = 11.5,
+			hidden = function()
+				return (Draft().spellSelect or "custom") ~= "custom"
+			end,
+			get = function()
+				return Draft().spellID or ""
+			end,
+			set = function(_, v)
+				Draft().spellID = v or ""
+			end,
+		},
+		draftUnit = {
+			type = "select",
+			name = L["AURA_SOUNDS_UNIT"],
+			order = 12,
+			values = {
+				player = L["AURA_SOUNDS_UNIT_PLAYER"],
+				target = L["AURA_SOUNDS_UNIT_TARGET"],
+				focus = L["AURA_SOUNDS_UNIT_FOCUS"],
+			},
+			get = function()
+				return Draft().unit or "player"
+			end,
+			set = function(_, v)
+				Draft().unit = v
+			end,
+		},
+		draftEvent = {
+			type = "select",
+			name = L["AURA_SOUNDS_EVENT"],
+			order = 13,
+			values = {
+				apply = L["AURA_SOUNDS_EVENT_APPLY"],
+				stack = L["AURA_SOUNDS_EVENT_STACK"],
+				remove = L["AURA_SOUNDS_EVENT_REMOVE"],
+			},
+			get = function()
+				return Draft().event or "apply"
+			end,
+			set = function(_, v)
+				Draft().event = v
+			end,
+		},
+		draftSound = {
+			type = "select",
+			name = L["AURA_SOUNDS_SOUND"],
+			desc = L["AURA_SOUNDS_SOUND_DESC"],
+			order = 14,
+			values = function()
+				return addon:GetAuraSoundSoundValues()
+			end,
+			get = function()
+				local d = Draft()
+				if d.soundKey then
+					return d.soundKey
+				end
+				local kit = tonumber(d.soundKitID) or 878
+				return "kit:" .. kit
+			end,
+			set = function(_, v)
+				Draft().soundKey = v
+			end,
+		},
+		draftTest = {
+			type = "execute",
+			name = L["AURA_SOUNDS_TEST"],
+			order = 15,
+			width = "half",
+			func = function()
+				local d = Draft()
+				addon:PlayAuraSoundChoice(d.soundKey or ("kit:" .. tostring(d.soundKitID or 878)))
+			end,
+		},
+		draftAdd = {
+			type = "execute",
+			name = L["AURA_SOUNDS_ADD"],
+			order = 16,
+			width = "half",
+			func = function()
+				local d = Draft()
+				local spellID = d.spellID
+				if d.spellSelect and d.spellSelect ~= "custom" then
+					spellID = d.spellSelect
+				end
+				local ok = addon:AddAuraSoundRule({
+					spellID = spellID,
+					unit = d.unit,
+					event = d.event,
+					soundKey = d.soundKey or ("kit:" .. tostring(d.soundKitID or 878)),
+				})
+				if ok then
+					RebuildAuraSoundRuleArgs()
+					LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+				end
+			end,
+		},
+		listHeader = {
+			type = "header",
+			name = L["AURA_SOUNDS_LIST"],
+			order = 40,
 		},
 	}
-	skinArgs.buffBar = nil
-	skinArgs.powerBar = nil
-	skinArgs.auraBars = nil
+
+	RebuildAuraSoundRuleArgs()
+
+	options.args.auraSounds = {
+		type = "group",
+		name = L["AURA_SOUNDS"],
+		order = 8,
+		args = auraSoundsArgs,
+	}
 
 	options.args.blizzard = {
 		type = "group",
@@ -1864,11 +2685,14 @@ function ns.SetupOptions(addon)
 	options.args.profiles.order = 99
 	options.args.profiles.name = L["PROFILES"]
 
+	options.args.skin = nil
+	options.args.bars = nil
+
 	AceConfig:RegisterOptionsTable(ADDON_NAME, options)
-	AceConfigDialog:SetDefaultSize(ADDON_NAME, 820, 620)
+	AceConfigDialog:SetDefaultSize(ADDON_NAME, 900, 640)
 	AceConfigDialog:AddToBlizOptions(ADDON_NAME, L["ADDON_NAME"])
 
 	local status = AceConfigDialog:GetStatusTable(ADDON_NAME)
-	status.width = status.width or 820
-	status.height = status.height or 620
+	status.width = status.width or 900
+	status.height = status.height or 640
 end
