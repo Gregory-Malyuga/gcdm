@@ -629,8 +629,8 @@ local function EnsureHost()
 	end
 	host = CreateFrame("Frame", "GCDM_PowerBarHost", UIParent)
 	host:SetSize(200, 20)
-	host:SetFrameStrata("BACKGROUND")
-	host:SetFrameLevel(1)
+	host:SetFrameStrata("MEDIUM")
+	host:SetFrameLevel(100)
 	primaryBar = EnsureBar(host, "GCDM_PowerBarPrimary")
 	primaryBar:SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
 	primaryBar:SetPoint("TOPRIGHT", host, "TOPRIGHT", 0, 0)
@@ -758,13 +758,18 @@ local function AnchorHost(db)
 	end
 
 	h:ClearAllPoints()
-	h:SetFrameStrata("BACKGROUND")
-	h:SetFrameLevel(1)
 	if essential then
+		local strata = essential:GetFrameStrata()
+		if strata then
+			h:SetFrameStrata(strata)
+		end
+		h:SetFrameLevel(math.max((essential:GetFrameLevel() or 0) + 10, 100))
 		h:SetPoint("BOTTOMLEFT", essential, "TOPLEFT", 0, gap)
 		h:SetPoint("BOTTOMRIGHT", essential, "TOPRIGHT", 0, gap)
 		NudgeBuffBarAbovePower(db, h, 1)
 	else
+		h:SetFrameStrata("MEDIUM")
+		h:SetFrameLevel(100)
 		h:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
 		h:SetWidth(width)
 	end

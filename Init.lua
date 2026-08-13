@@ -145,22 +145,48 @@ function GCDM:OnInitialize()
 		if p.powerBarTextOutline == nil then
 			p.powerBarTextOutline = p.textOutline or "OUTLINE"
 		end
-		if p.auraBarFont == nil then
-			p.auraBarFont = p.textFont or "Expressway"
-		end
-		if p.auraBarTextOutline == nil then
-			p.auraBarTextOutline = p.textOutline or "OUTLINE"
-		end
 		p._gcdmPerViewerText = true
 	end
+	-- Keybind text defaults for Essential/Utility (once).
+	if not p._gcdmKeybindTextDefaults then
+		p.textByViewer = p.textByViewer or {}
+		local function ensureKeybind(key)
+			local st = p.textByViewer[key]
+			if type(st) ~= "table" then
+				st = {}
+				p.textByViewer[key] = st
+			end
+			st.keybindFontSize = st.keybindFontSize or 11
+			if type(st.keybindTextColor) ~= "table" then
+				st.keybindTextColor = { r = 1, g = 1, b = 1, a = 1 }
+			else
+				st.keybindTextColor = {
+					r = st.keybindTextColor.r or 1,
+					g = st.keybindTextColor.g or 1,
+					b = st.keybindTextColor.b or 1,
+					a = st.keybindTextColor.a or 1,
+				}
+			end
+			st.keybindTextPoint = st.keybindTextPoint or "TOPLEFT"
+			st.keybindTextOffsetX = st.keybindTextOffsetX or 2
+			st.keybindTextOffsetY = st.keybindTextOffsetY or -1
+		end
+		ensureKeybind("EssentialCooldownViewer")
+		ensureKeybind("UtilityCooldownViewer")
+		if p.keybindTextEnabled == nil then
+			p.keybindTextEnabled = true
+		end
+		if p.pressOverlayEnabled == nil then
+			p.pressOverlayEnabled = true
+		end
+		p._gcdmKeybindTextDefaults = true
+	end
+	-- Press debug off by default (was temporary spam).
+	p.pressOverlayDebug = false
 	MaterializeColor("borderColor")
 	MaterializeColor("swipeColor")
 	MaterializeColor("buffBarColor")
 	MaterializeColor("buffBarBackgroundColor")
-	MaterializeColor("auraBarColor")
-	MaterializeColor("auraAppBarColor")
-	MaterializeColor("auraBarBackgroundColor")
-	MaterializeColor("auraBarTextColor")
 	MaterializeColor("powerBarColor")
 	MaterializeColor("powerBarBackgroundColor")
 	MaterializeColor("powerBarTextColor")
@@ -184,18 +210,6 @@ function GCDM:OnInitialize()
 				end
 			end
 		end
-	end
-	if self.db.profile.auraAppSpellIDs == nil then
-		self.db.profile.auraAppSpellIDs = ""
-	end
-	if self.db.profile.auraBarShowTicks == nil then
-		self.db.profile.auraBarShowTicks = true
-	end
-	if self.db.profile.auraBarShowDuration == nil then
-		self.db.profile.auraBarShowDuration = true
-	end
-	if self.db.profile.auraBarFontSize == nil then
-		self.db.profile.auraBarFontSize = 10
 	end
 	if self.db.profile.auraSoundEnabled == nil then
 		self.db.profile.auraSoundEnabled = true
@@ -328,6 +342,22 @@ function GCDM:SlashCommand(input)
 	input = strtrim(input or "")
 	local cmd = input:match("^(%S+)") or ""
 	cmd = string.lower(cmd)
+	if cmd == "press" or cmd == "presslog" then
+		local db = self:GetDB()
+		if db then
+			if cmd == "presslog" or input:find("toggle", 1, true) then
+				db.pressOverlayDebug = not (db.pressOverlayDebug == true)
+				self:Print("pressOverlayDebug = " .. tostring(db.pressOverlayDebug == true))
+			else
+				db.pressOverlayDebug = true
+			end
+		end
+		if self.Skin and self.Skin.DumpPressOverlayDebug then
+			self.Skin.DumpPressOverlayDebug()
+		end
+		self:Refresh(self.CONST.REFRESH.STYLE)
+		return
+	end
 	if cmd == "debug" then
 		self:ToggleDebugSkin()
 		return

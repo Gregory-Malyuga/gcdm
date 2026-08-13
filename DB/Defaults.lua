@@ -37,6 +37,11 @@ ns.defaults = {
 				stackTextPoint = "BOTTOMRIGHT",
 				stackTextOffsetX = -1,
 				stackTextOffsetY = 1,
+				keybindFontSize = 11,
+				keybindTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				keybindTextPoint = "TOPLEFT",
+				keybindTextOffsetX = 2,
+				keybindTextOffsetY = -1,
 			},
 			UtilityCooldownViewer = {
 				textFont = "Expressway",
@@ -51,6 +56,11 @@ ns.defaults = {
 				stackTextPoint = "BOTTOMRIGHT",
 				stackTextOffsetX = -1,
 				stackTextOffsetY = 1,
+				keybindFontSize = 11,
+				keybindTextColor = { r = 1, g = 1, b = 1, a = 1 },
+				keybindTextPoint = "TOPLEFT",
+				keybindTextOffsetX = 2,
+				keybindTextOffsetY = -1,
 			},
 			BuffIconCooldownViewer = {
 				textFont = "Expressway",
@@ -82,6 +92,11 @@ ns.defaults = {
 
 		fadeOutOfCombat = false,
 		fadeAlpha = 0.35,
+
+		-- Essential/Utility: action-bar keybind label + press feedback.
+		keybindTextEnabled = true,
+		pressOverlayEnabled = true,
+		pressOverlayDebug = false,
 
 		glowEnabled = true,
 		glowAutoFit = true,
@@ -147,34 +162,6 @@ ns.defaults = {
 		powerBarProfiles = {}, -- [CLASSFILE] = { colorMode, curveMode, curvePointsStr, … }
 		powerBarEditClass = "DEFAULT", -- UI only last-selected class in options
 
-		-- Custom aura strips (12.1 AuraContainer slots when available; legacy fallback).
-		-- Duration: auraBarSpellIDs = "6673,32216"
-		-- Applications (e.g. Whirlwind): auraAppSpellIDs = "85739:4" (spell:maxStacks + ticks)
-		-- Sounds: apply / each stack / remove only — NOT "only at N stacks" (impossible in combat).
-		auraBarsEnabled = false,
-		auraBarSpellIDs = "",
-		auraAppSpellIDs = "",
-		auraBarWidth = 0,
-		auraBarHeight = 6,
-		auraBarSpacing = 1,
-		auraBarGap = 1,
-		auraBarBorderSize = 0,
-		auraBarFontSize = 10,
-		auraBarFont = "Expressway",
-		auraBarTextOutline = "OUTLINE",
-		auraBarTexture = "Solid",
-		auraBarBackgroundTexture = "Solid",
-		auraBarColor = { r = 0.4, g = 0.6, b = 0.9, a = 1 },
-		auraAppBarColor = { r = 0.2, g = 0.85, b = 0.75, a = 1 },
-		auraBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 1 },
-		auraBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
-		auraBarShowName = false,
-		auraBarShowDuration = true,
-		auraBarShowTicks = true,
-		auraSoundOnApply = false,
-		auraSoundOnStack = false,
-		auraSoundOnRemove = false,
-		auraSoundKitID = 0,
 		-- Independent sound rules tab (AddAuraSound).
 		auraSoundEnabled = true,
 		auraSoundDefaultKitID = 878,

@@ -308,9 +308,6 @@ function Skin.InitSharedMedia()
 			if not db.powerBarFont or db.powerBarFont == "Friz Quadrata TT" then
 				db.powerBarFont = preferred
 			end
-			if not db.auraBarFont or db.auraBarFont == "Friz Quadrata TT" then
-				db.auraBarFont = preferred
-			end
 		end
 	end
 	local lib = EnsureLSM()

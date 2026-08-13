@@ -17,6 +17,7 @@ Core\Refresh.lua
 Core\Pixel.lua
 Core\EditMode.lua
 Core\ViewerRegistry.lua
+Core\ProfileShare.lua
 DB\Defaults.lua
 Locales\enUS.lua
 Locales\ruRU.lua
@@ -28,13 +29,13 @@ Skin\Position.lua
 Skin\Size.lua
 Skin\Border.lua
 Skin\Icon.lua
+Skin\Keybinds.lua
 Skin\Text.lua
+Skin\PressOverlay.lua
 Skin\Glow.lua
 Skin\BuffBar.lua
 Skin\PowerBar.lua
-Skin\AuraSlots.lua
 Skin\AuraSounds.lua
-Skin\AuraBars.lua
 Skin\Debug.lua
 Skin\Tests.lua
 Options\Options.lua

@@ -1,4 +1,4 @@
-﻿local ADDON_NAME, ns = ...
+local ADDON_NAME, ns = ...
 local L = ns.L
 
 local function RefreshSkin(addon)
@@ -26,56 +26,6 @@ function ns.SetupOptions(addon)
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 	local db = function()
 		return addon.db.profile
-	end
-
-	local auraBarDurDraft = { select = "custom", id = "" }
-	local auraBarAppDraft = { select = "custom", id = "", max = "4" }
-
-	local function AuraBarDurDraft()
-		return auraBarDurDraft
-	end
-
-	local function AuraBarAppDraft()
-		return auraBarAppDraft
-	end
-
-	local function SplitAuraCsv(str)
-		local out = {}
-		if type(str) ~= "string" or str == "" then
-			return out
-		end
-		for part in string.gmatch(str, "[^,%s]+") do
-			out[#out + 1] = part
-		end
-		return out
-	end
-
-	local function JoinAuraCsv(parts)
-		return table.concat(parts, ",")
-	end
-
-	local function AuraBarSpellLabel(spellID)
-		spellID = tonumber(spellID)
-		if not spellID then
-			return "?"
-		end
-		if C_Spell and C_Spell.GetSpellName then
-			local ok, name = pcall(C_Spell.GetSpellName, spellID)
-			if ok and name then
-				return string.format("%s (%d)", name, spellID)
-			end
-		end
-		return tostring(spellID)
-	end
-
-	local function ResolveAuraBarDraftSpell(draft)
-		if not draft then
-			return nil
-		end
-		if draft.select and draft.select ~= "custom" then
-			return tonumber(draft.select)
-		end
-		return tonumber(draft.id)
 	end
 
 	local function setSize(tbl, key, value)
@@ -131,9 +81,9 @@ function ns.SetupOptions(addon)
 		style[key] = { r = r, g = g, b = b, a = a }
 	end
 
-	local function MakeIconTextArgs(viewerKey, orderBase)
+	local function MakeIconTextArgs(viewerKey, orderBase, withKeybind)
 		orderBase = orderBase or 100
-		return {
+		local args = {
 			textHeader = {
 				type = "header",
 				name = L["TEXT"],
@@ -329,6 +279,113 @@ function ns.SetupOptions(addon)
 				end,
 			},
 		}
+		if withKeybind then
+			args.keybindHeader = {
+				type = "header",
+				name = L["KEYBIND_TEXT"],
+				order = orderBase + 30,
+			}
+			args.keybindTextEnabled = {
+				type = "toggle",
+				name = L["KEYBIND_TEXT_ENABLED"],
+				desc = L["KEYBIND_TEXT_ENABLED_DESC"],
+				order = orderBase + 31,
+				get = function()
+					return db().keybindTextEnabled ~= false
+				end,
+				set = function(_, v)
+					db().keybindTextEnabled = v and true or false
+					RefreshSkin(addon)
+				end,
+			}
+			args.pressOverlayEnabled = {
+				type = "toggle",
+				name = L["PRESS_OVERLAY_ENABLED"],
+				desc = L["PRESS_OVERLAY_ENABLED_DESC"],
+				order = orderBase + 32,
+				get = function()
+					return db().pressOverlayEnabled ~= false
+				end,
+				set = function(_, v)
+					db().pressOverlayEnabled = v and true or false
+					RefreshSkin(addon)
+				end,
+			}
+			args.keybindFontSize = {
+				type = "range",
+				name = L["KEYBIND_FONT_SIZE"],
+				order = orderBase + 33,
+				min = 8,
+				max = 28,
+				step = 1,
+				get = function()
+					return TextStyle(viewerKey).keybindFontSize or 11
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).keybindFontSize = v
+					RefreshSkin(addon)
+				end,
+			}
+			args.keybindTextColor = {
+				type = "color",
+				name = L["KEYBIND_TEXT_COLOR"],
+				order = orderBase + 34,
+				hasAlpha = true,
+				get = function()
+					return getStyleColor(TextStyle(viewerKey), "keybindTextColor", { r = 1, g = 1, b = 1, a = 1 })
+				end,
+				set = function(_, r, g, b, a)
+					setStyleColor(TextStyle(viewerKey), "keybindTextColor", r, g, b, a)
+					RefreshSkin(addon)
+				end,
+			}
+			args.keybindTextPoint = {
+				type = "select",
+				name = L["KEYBIND_TEXT_POINT"],
+				order = orderBase + 35,
+				values = ANCHOR_VALUES,
+				get = function()
+					return TextStyle(viewerKey).keybindTextPoint or "TOPLEFT"
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).keybindTextPoint = v
+					RefreshSkin(addon)
+				end,
+			}
+			args.keybindTextOffsetX = {
+				type = "range",
+				name = L["KEYBIND_TEXT_OFFSET_X"],
+				order = orderBase + 36,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(viewerKey).keybindTextOffsetX or 2
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).keybindTextOffsetX = v
+					RefreshSkin(addon)
+				end,
+			}
+			args.keybindTextOffsetY = {
+				type = "range",
+				name = L["KEYBIND_TEXT_OFFSET_Y"],
+				order = orderBase + 37,
+				min = -40,
+				max = 40,
+				step = FSTEP,
+				bigStep = 1,
+				get = function()
+					return TextStyle(viewerKey).keybindTextOffsetY or -1
+				end,
+				set = function(_, v)
+					TextStyle(viewerKey).keybindTextOffsetY = v
+					RefreshSkin(addon)
+				end,
+			}
+		end
+		return args
 	end
 
 	local function MakeBuffBarTextArgs(orderBase)
@@ -1634,535 +1691,6 @@ function ns.SetupOptions(addon)
 							},
 						},
 					},
-					auraBars = {
-						type = "group",
-						name = L["AURA_BARS"],
-						order = 7,
-						args = {
-							auraBarsEnabled = {
-								type = "toggle",
-								name = L["AURA_BARS_ENABLED"],
-								desc = L["AURA_BARS_ENABLED_DESC"],
-								order = 1,
-								width = "full",
-								get = function()
-									return db().auraBarsEnabled == true
-								end,
-								set = function(_, v)
-									db().auraBarsEnabled = v and true or false
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarDurHeader = {
-								type = "header",
-								name = L["AURA_BARS_SPELLS"],
-								order = 2,
-							},
-							auraBarDurSelect = {
-								type = "select",
-								name = L["AURA_SOUNDS_SPELL_SELECT"],
-								desc = L["AURA_SOUNDS_SPELL_SELECT_DESC"],
-								order = 2.1,
-								values = function()
-									return addon:GetAuraSoundSpellValues()
-								end,
-								get = function()
-									local d = AuraBarDurDraft()
-									local sel = d.select
-									if sel and sel ~= "custom" then
-										return sel
-									end
-									if d.id and d.id ~= "" then
-										local values = addon:GetAuraSoundSpellValues()
-										if values[tostring(d.id)] then
-											return tostring(d.id)
-										end
-									end
-									return "custom"
-								end,
-								set = function(_, v)
-									local d = AuraBarDurDraft()
-									d.select = v
-									if v ~= "custom" then
-										d.id = v
-									end
-								end,
-							},
-							auraBarDurCustom = {
-								type = "input",
-								name = L["AURA_SOUNDS_SPELL"],
-								desc = L["AURA_SOUNDS_SPELL_DESC"],
-								order = 2.15,
-								hidden = function()
-									return (AuraBarDurDraft().select or "custom") ~= "custom"
-								end,
-								get = function()
-									return AuraBarDurDraft().id or ""
-								end,
-								set = function(_, v)
-									AuraBarDurDraft().id = v or ""
-								end,
-							},
-							auraBarDurAdd = {
-								type = "execute",
-								name = L["AURA_BARS_ADD"],
-								order = 2.2,
-								func = function()
-									local id = ResolveAuraBarDraftSpell(AuraBarDurDraft())
-									if not id then
-										return
-									end
-									local parts = SplitAuraCsv(db().auraBarSpellIDs)
-									local key = tostring(id)
-									for i = 1, #parts do
-										if parts[i] == key then
-											return
-										end
-									end
-									parts[#parts + 1] = key
-									db().auraBarSpellIDs = JoinAuraCsv(parts)
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
-								end,
-							},
-							auraBarDurList = {
-								type = "multiselect",
-								name = L["AURA_BARS_LIST"],
-								desc = L["AURA_BARS_LIST_DESC"],
-								order = 2.3,
-								values = function()
-									local values = {}
-									local parts = SplitAuraCsv(db().auraBarSpellIDs)
-									for i = 1, #parts do
-										local id = tonumber(parts[i])
-										if id then
-											values[tostring(id)] = AuraBarSpellLabel(id)
-										end
-									end
-									return values
-								end,
-								get = function(_, key)
-									local parts = SplitAuraCsv(db().auraBarSpellIDs)
-									for i = 1, #parts do
-										if parts[i] == tostring(key) then
-											return true
-										end
-									end
-									return false
-								end,
-								set = function(_, key, checked)
-									if checked then
-										return
-									end
-									local parts = SplitAuraCsv(db().auraBarSpellIDs)
-									local out = {}
-									local drop = tostring(key)
-									for i = 1, #parts do
-										if parts[i] ~= drop then
-											out[#out + 1] = parts[i]
-										end
-									end
-									db().auraBarSpellIDs = JoinAuraCsv(out)
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
-								end,
-							},
-							auraBarAppHeader = {
-								type = "header",
-								name = L["AURA_APP_SPELLS"],
-								order = 2.4,
-							},
-							auraBarAppSelect = {
-								type = "select",
-								name = L["AURA_SOUNDS_SPELL_SELECT"],
-								desc = L["AURA_SOUNDS_SPELL_SELECT_DESC"],
-								order = 2.45,
-								values = function()
-									return addon:GetAuraSoundSpellValues()
-								end,
-								get = function()
-									local d = AuraBarAppDraft()
-									local sel = d.select
-									if sel and sel ~= "custom" then
-										return sel
-									end
-									if d.id and d.id ~= "" then
-										local values = addon:GetAuraSoundSpellValues()
-										if values[tostring(d.id)] then
-											return tostring(d.id)
-										end
-									end
-									return "custom"
-								end,
-								set = function(_, v)
-									local d = AuraBarAppDraft()
-									d.select = v
-									if v ~= "custom" then
-										d.id = v
-									end
-								end,
-							},
-							auraBarAppCustom = {
-								type = "input",
-								name = L["AURA_SOUNDS_SPELL"],
-								desc = L["AURA_SOUNDS_SPELL_DESC"],
-								order = 2.5,
-								hidden = function()
-									return (AuraBarAppDraft().select or "custom") ~= "custom"
-								end,
-								get = function()
-									return AuraBarAppDraft().id or ""
-								end,
-								set = function(_, v)
-									AuraBarAppDraft().id = v or ""
-								end,
-							},
-							auraBarAppMax = {
-								type = "input",
-								name = L["AURA_APP_MAX"],
-								desc = L["AURA_APP_MAX_DESC"],
-								order = 2.52,
-								get = function()
-									return AuraBarAppDraft().max or "4"
-								end,
-								set = function(_, v)
-									AuraBarAppDraft().max = v or "4"
-								end,
-							},
-							auraBarAppAdd = {
-								type = "execute",
-								name = L["AURA_BARS_ADD"],
-								order = 2.55,
-								func = function()
-									local id = ResolveAuraBarDraftSpell(AuraBarAppDraft())
-									if not id then
-										return
-									end
-									local maxN = tonumber(AuraBarAppDraft().max) or 4
-									if maxN < 1 then
-										maxN = 4
-									end
-									local token = string.format("%d:%d", id, maxN)
-									local parts = SplitAuraCsv(db().auraAppSpellIDs)
-									local idKey = tostring(id)
-									local out = {}
-									for i = 1, #parts do
-										local pid = string.match(parts[i], "^(%d+)")
-										if pid ~= idKey then
-											out[#out + 1] = parts[i]
-										end
-									end
-									out[#out + 1] = token
-									db().auraAppSpellIDs = JoinAuraCsv(out)
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
-								end,
-							},
-							auraBarAppList = {
-								type = "multiselect",
-								name = L["AURA_APP_LIST"],
-								desc = L["AURA_BARS_LIST_DESC"],
-								order = 2.58,
-								values = function()
-									local values = {}
-									local parts = SplitAuraCsv(db().auraAppSpellIDs)
-									for i = 1, #parts do
-										local id, maxS = string.match(parts[i], "^(%d+):(%d+)$")
-										if not id then
-											id = string.match(parts[i], "^(%d+)$")
-											maxS = "4"
-										end
-										if id then
-											values[parts[i]] = string.format("%s  ·  max %s", AuraBarSpellLabel(tonumber(id)), maxS)
-										end
-									end
-									return values
-								end,
-								get = function(_, key)
-									local parts = SplitAuraCsv(db().auraAppSpellIDs)
-									for i = 1, #parts do
-										if parts[i] == tostring(key) then
-											return true
-										end
-									end
-									return false
-								end,
-								set = function(_, key, checked)
-									if checked then
-										return
-									end
-									local parts = SplitAuraCsv(db().auraAppSpellIDs)
-									local out = {}
-									local drop = tostring(key)
-									for i = 1, #parts do
-										if parts[i] ~= drop then
-											out[#out + 1] = parts[i]
-										end
-									end
-									db().auraAppSpellIDs = JoinAuraCsv(out)
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-									LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
-								end,
-							},
-							auraSoundTabHint = {
-								type = "description",
-								name = L["AURA_BARS_SOUND_HINT"],
-								order = 2.6,
-								fontSize = "medium",
-							},
-							auraBarHeight = {
-								type = "range",
-								name = L["AURA_BAR_HEIGHT"],
-								order = 3,
-								min = 1,
-								max = 40,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().auraBarHeight or 6
-								end,
-								set = function(_, v)
-									db().auraBarHeight = v
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarShowName = {
-								type = "toggle",
-								name = L["AURA_BAR_SHOW_NAME"],
-								order = 3.5,
-								get = function()
-									return db().auraBarShowName == true
-								end,
-								set = function(_, v)
-									db().auraBarShowName = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarShowDuration = {
-								type = "toggle",
-								name = L["AURA_BAR_SHOW_DURATION"],
-								desc = L["AURA_BAR_SHOW_DURATION_DESC"],
-								order = 3.55,
-								get = function()
-									return db().auraBarShowDuration ~= false
-								end,
-								set = function(_, v)
-									db().auraBarShowDuration = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarFontSize = {
-								type = "range",
-								name = L["AURA_BAR_FONT_SIZE"],
-								order = 3.56,
-								min = 8,
-								max = 28,
-								step = 1,
-								get = function()
-									return db().auraBarFontSize or 10
-								end,
-								set = function(_, v)
-									db().auraBarFontSize = v
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarFont = {
-								type = "select",
-								name = L["TEXT_FONT"],
-								order = 3.562,
-								values = function()
-									return addon.Skin.ListMedia("font")
-								end,
-								get = function()
-									return addon.Skin.ResolveFontName(db().auraBarFont or addon.Skin.DefaultFontName())
-								end,
-								set = function(_, v)
-									db().auraBarFont = v
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarTextOutline = {
-								type = "select",
-								name = L["TEXT_OUTLINE"],
-								order = 3.565,
-								values = OUTLINE_VALUES,
-								get = function()
-									local v = db().auraBarTextOutline or "OUTLINE"
-									if v == "" then
-										return "NONE"
-									end
-									return v
-								end,
-								set = function(_, v)
-									db().auraBarTextOutline = (v == "NONE") and "" or v
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarTextColor = {
-								type = "color",
-								name = L["AURA_BAR_TEXT_COLOR"],
-								order = 3.57,
-								hasAlpha = true,
-								get = function()
-									return getColor("auraBarTextColor", { r = 1, g = 1, b = 1, a = 1 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("auraBarTextColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarShowTicks = {
-								type = "toggle",
-								name = L["AURA_BAR_SHOW_TICKS"],
-								order = 3.6,
-								get = function()
-									return db().auraBarShowTicks ~= false
-								end,
-								set = function(_, v)
-									db().auraBarShowTicks = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							barSmoothProgress = {
-								type = "toggle",
-								name = L["BAR_SMOOTH"],
-								desc = L["BAR_SMOOTH_DESC"],
-								order = 3.65,
-								width = "full",
-								get = function()
-									return db().barSmoothProgress == true
-								end,
-								set = function(_, v)
-									db().barSmoothProgress = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarWidth = {
-								type = "range",
-								name = L["AURA_BAR_WIDTH"],
-								order = 4,
-								min = 0,
-								max = 600,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().auraBarWidth or 0
-								end,
-								set = function(_, v)
-									db().auraBarWidth = v
-									RefreshLayout(addon)
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarGap = {
-								type = "range",
-								name = L["AURA_BAR_GAP"],
-								order = 5,
-								min = 0,
-								max = 40,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().auraBarGap or 2
-								end,
-								set = function(_, v)
-									db().auraBarGap = v
-									RefreshLayout(addon)
-								end,
-							},
-							auraBarSpacing = {
-								type = "range",
-								name = L["AURA_BAR_SPACING"],
-								order = 6,
-								min = 0,
-								max = 20,
-								step = FSTEP,
-								bigStep = 1,
-								get = function()
-									return db().auraBarSpacing or 1
-								end,
-								set = function(_, v)
-									db().auraBarSpacing = v
-									RefreshLayout(addon)
-								end,
-							},
-							auraBarTexture = {
-								type = "select",
-								name = L["AURA_BAR_TEXTURE"],
-								order = 7,
-								values = function()
-									return addon.Skin.ListMedia("statusbar")
-								end,
-								get = function()
-									return db().auraBarTexture or "Solid"
-								end,
-								set = function(_, v)
-									db().auraBarTexture = v
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarBackgroundTexture = {
-								type = "select",
-								name = L["AURA_BAR_BG_TEXTURE"],
-								order = 7.5,
-								values = function()
-									return addon.Skin.ListMedia("statusbar")
-								end,
-								get = function()
-									return db().auraBarBackgroundTexture or "Solid"
-								end,
-								set = function(_, v)
-									db().auraBarBackgroundTexture = v
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarColor = {
-								type = "color",
-								name = L["AURA_BAR_COLOR"],
-								order = 8,
-								hasAlpha = true,
-								get = function()
-									return getColor("auraBarColor", { r = 0.5, g = 0.2, b = 0.7, a = 1 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("auraBarColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
-							auraAppBarColor = {
-								type = "color",
-								name = L["AURA_APP_BAR_COLOR"],
-								order = 8.5,
-								hasAlpha = true,
-								get = function()
-									return getColor("auraAppBarColor", { r = 0.2, g = 0.85, b = 0.75, a = 1 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("auraAppBarColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
-							auraBarBackgroundColor = {
-								type = "color",
-								name = L["AURA_BAR_BG_COLOR"],
-								order = 9,
-								hasAlpha = true,
-								get = function()
-									return getColor("auraBarBackgroundColor", { r = 0.1, g = 0.1, b = 0.1, a = 0.85 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("auraBarBackgroundColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
-						},
-					},
 				},
 			},
 			profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon.db),
@@ -2288,7 +1816,7 @@ function ns.SetupOptions(addon)
 			essH = sizeArgs.essH,
 			ess2W = sizeArgs.ess2W,
 			ess2H = sizeArgs.ess2H,
-		}, takePos("essential", 50), MakeIconTextArgs(V.ESSENTIAL, 100)),
+		}, takePos("essential", 50), MakeIconTextArgs(V.ESSENTIAL, 100, true)),
 	}
 
 	if sizeArgs.utilW then
@@ -2307,7 +1835,7 @@ function ns.SetupOptions(addon)
 			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
 			utilW = sizeArgs.utilW,
 			utilH = sizeArgs.utilH,
-		}, takePos("utility", 50), MakeIconTextArgs(V.UTILITY, 100)),
+		}, takePos("utility", 50), MakeIconTextArgs(V.UTILITY, 100, true)),
 	}
 
 	if sizeArgs.buffW then
@@ -2348,12 +1876,6 @@ function ns.SetupOptions(addon)
 		args = skinArgs.powerBar.args,
 	}
 
-	options.args.auraBars = {
-		type = "group",
-		name = L["BLOCK_AURA"],
-		order = 7,
-		args = skinArgs.auraBars.args,
-	}
 
 	local function SpellLabel(spellID)
 		spellID = tonumber(spellID)
@@ -2684,6 +2206,138 @@ function ns.SetupOptions(addon)
 
 	options.args.profiles.order = 99
 	options.args.profiles.name = L["PROFILES"]
+
+	do
+		local share = {
+			exportString = "",
+			importString = "",
+			importName = "",
+			importMode = "new",
+			status = "",
+		}
+		local function ImportErrorMessage(err)
+			if err == "empty" then
+				return L["PROFILE_IMPORT_ERR_EMPTY"]
+			end
+			if err == "encoding_unavailable" then
+				return L["PROFILE_IMPORT_ERR_ENCODING"]
+			end
+			if err == "wrong_addon" then
+				return L["PROFILE_IMPORT_ERR_ADDON"]
+			end
+			return L["PROFILE_IMPORT_ERR_INVALID"]
+		end
+		local args = options.args.profiles.args
+		args.gcdmShareHeader = {
+			type = "header",
+			name = L["PROFILE_SHARE"],
+			order = 200,
+		}
+		args.gcdmShareDesc = {
+			type = "description",
+			name = L["PROFILE_SHARE_DESC"],
+			order = 201,
+			fontSize = "medium",
+		}
+		args.gcdmExportBtn = {
+			type = "execute",
+			name = L["PROFILE_EXPORT"],
+			order = 202,
+			width = "full",
+			func = function()
+				local str, err = addon:ExportProfileString()
+				if not str then
+					share.status = L["PROFILE_EXPORT_ERR"] .. (err and (" (" .. err .. ")") or "")
+					share.exportString = ""
+				else
+					share.exportString = str
+					share.status = L["PROFILE_EXPORT_HINT"]
+				end
+			end,
+		}
+		args.gcdmExportString = {
+			type = "input",
+			name = L["PROFILE_EXPORT_STRING"],
+			order = 203,
+			width = "full",
+			multiline = 6,
+			get = function()
+				return share.exportString
+			end,
+			set = function(_, v)
+				share.exportString = v or ""
+			end,
+		}
+		args.gcdmImportString = {
+			type = "input",
+			name = L["PROFILE_IMPORT_STRING"],
+			order = 210,
+			width = "full",
+			multiline = 6,
+			get = function()
+				return share.importString
+			end,
+			set = function(_, v)
+				share.importString = v or ""
+			end,
+		}
+		args.gcdmImportName = {
+			type = "input",
+			name = L["PROFILE_IMPORT_NAME"],
+			desc = L["PROFILE_IMPORT_NAME_DESC"],
+			order = 211,
+			width = "full",
+			get = function()
+				return share.importName
+			end,
+			set = function(_, v)
+				share.importName = v or ""
+			end,
+		}
+		args.gcdmImportMode = {
+			type = "select",
+			name = L["PROFILE_IMPORT_MODE"],
+			order = 212,
+			values = {
+				new = L["PROFILE_IMPORT_MODE_NEW"],
+				current = L["PROFILE_IMPORT_MODE_CURRENT"],
+			},
+			get = function()
+				return share.importMode
+			end,
+			set = function(_, v)
+				share.importMode = v
+			end,
+		}
+		args.gcdmImportBtn = {
+			type = "execute",
+			name = L["PROFILE_IMPORT"],
+			order = 213,
+			width = "full",
+			func = function()
+				local name, err = addon:ImportProfileString(
+					share.importString,
+					share.importMode,
+					(share.importName ~= "" and share.importName) or nil
+				)
+				if not name then
+					share.status = ImportErrorMessage(err)
+				else
+					share.status = string.format(L["PROFILE_IMPORT_OK"], name)
+					share.importString = ""
+					LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+				end
+			end,
+		}
+		args.gcdmShareStatus = {
+			type = "description",
+			name = function()
+				return share.status or ""
+			end,
+			order = 220,
+			fontSize = "medium",
+		}
+	end
 
 	options.args.skin = nil
 	options.args.bars = nil

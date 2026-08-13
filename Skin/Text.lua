@@ -24,6 +24,11 @@ local ICON_VIEWERS = {
 	[VIEWERS.BUFF] = true,
 }
 
+local KEYBIND_VIEWERS = {
+	[VIEWERS.ESSENTIAL] = true,
+	[VIEWERS.UTILITY] = true,
+}
+
 local function CopyColor(c, fallback)
 	fallback = fallback or { r = 1, g = 1, b = 1, a = 1 }
 	if type(c) ~= "table" then
@@ -46,6 +51,11 @@ local function DefaultIconStyle()
 		stackTextPoint = "BOTTOMRIGHT",
 		stackTextOffsetX = -1,
 		stackTextOffsetY = 1,
+		keybindFontSize = 11,
+		keybindTextColor = { r = 1, g = 1, b = 1, a = 1 },
+		keybindTextPoint = "TOPLEFT",
+		keybindTextOffsetX = 2,
+		keybindTextOffsetY = -1,
 	}
 end
 
@@ -97,6 +107,9 @@ function Skin.GetTextStyle(db, viewerKey)
 	else
 		style.cooldownTextColor = CopyColor(style.cooldownTextColor)
 		style.stackTextColor = CopyColor(style.stackTextColor)
+		if KEYBIND_VIEWERS[viewerKey] then
+			style.keybindTextColor = CopyColor(style.keybindTextColor or { r = 1, g = 1, b = 1, a = 1 })
+		end
 	end
 	return style
 end
@@ -335,6 +348,84 @@ local function StyleStackText(frame, style, viewerKey)
 	end
 end
 
+local function EnsureKeybindFontString(frame)
+	local holder = frame.GCDMKeybind
+	if not holder then
+		holder = CreateFrame("Frame", nil, frame)
+		holder:SetAllPoints(frame)
+		frame.GCDMKeybind = holder
+		local fs = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		fs:SetDrawLayer("OVERLAY", 7)
+		holder.Text = fs
+	end
+	local cd = frame.Cooldown
+	local base = frame:GetFrameLevel() or 0
+	local cdLevel = (cd and cd.GetFrameLevel and cd:GetFrameLevel()) or (base + 1)
+	holder:SetFrameLevel(cdLevel + 6)
+	return holder, holder.Text
+end
+
+local function HideKeybindText(frame)
+	local holder = frame and frame.GCDMKeybind
+	if holder then
+		holder:Hide()
+	end
+end
+
+local function StyleKeybindText(frame, style, viewerKey)
+	if not frame or not KEYBIND_VIEWERS[viewerKey] then
+		HideKeybindText(frame)
+		return
+	end
+	local db = GCDM:GetDB()
+	if not db or db.keybindTextEnabled == false then
+		HideKeybindText(frame)
+		return
+	end
+	local spellID = Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame)
+	local text = spellID and Skin.GetKeybindText and Skin.GetKeybindText(spellID) or nil
+	if not text or text == "" then
+		HideKeybindText(frame)
+		return
+	end
+
+	local holder, fs = EnsureKeybindFontString(frame)
+	local path = Skin.FetchFont(style.textFont or "Expressway")
+	local size = style.keybindFontSize or 11
+	local outline = ResolveOutline(style.textOutline)
+	local fontKey = (viewerKey or "icon") .. "_kb"
+	local fontObj = GetFontObj(fontKey)
+	ApplyFontObject(fontObj, path, size, outline)
+
+	local point = NormalizePoint(style.keybindTextPoint, "TOPLEFT")
+	local ox = style.keybindTextOffsetX or 2
+	local oy = style.keybindTextOffsetY or -1
+	StyleFontString(fs, fontObj, style.keybindTextColor, point, ox, oy, holder, path, size, outline)
+	fs:SetText(text)
+	if fs.SetJustifyH then
+		fs:SetJustifyH("LEFT")
+	end
+	holder:Show()
+	fs:Show()
+end
+
+function Skin.RefreshKeybindTexts()
+	local db = GCDM:GetDB()
+	if not db or not db.enabled or db.keybindTextEnabled == false then
+		GCDM.Skin.ForEachManagedIcon(function(frame, _, viewerName)
+			if KEYBIND_VIEWERS[viewerName] then
+				HideKeybindText(frame)
+			end
+		end)
+		return
+	end
+	GCDM.Skin.ForEachManagedIcon(function(frame, _, viewerName)
+		if KEYBIND_VIEWERS[viewerName] then
+			StyleKeybindText(frame, Skin.GetTextStyle(db, viewerName), viewerName)
+		end
+	end)
+end
+
 function Skin.ApplyText(frame, viewerKey)
 	local db = GCDM:GetDB()
 	if not db or not db.enabled or not frame then
@@ -347,6 +438,7 @@ function Skin.ApplyText(frame, viewerKey)
 	local style = Skin.GetTextStyle(db, viewerKey)
 	StyleCooldownText(frame, style, viewerKey)
 	StyleStackText(frame, style, viewerKey)
+	StyleKeybindText(frame, style, viewerKey)
 end
 
 local function StyleBuffBarLabels(frame, db)

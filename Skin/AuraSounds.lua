@@ -85,28 +85,14 @@ local function GetFrameSpellID(frame)
 	return nil
 end
 
-local function AddSpell(seen, values, spellID, prefix)
+local function AddSpell(seen, values, spellID)
 	spellID = tonumber(spellID)
 	if not spellID or spellID <= 0 or seen[spellID] then
 		return
 	end
 	seen[spellID] = true
 	local key = tostring(spellID)
-	local label = SpellName(spellID) .. " (" .. key .. ")"
-	if prefix then
-		label = prefix .. " · " .. label
-	end
-	values[key] = label
-end
-
-local function ParseIdList(str, seen, values, prefix)
-	if type(str) ~= "string" or str == "" then
-		return
-	end
-	for part in string.gmatch(str, "[^,%s]+") do
-		local id = string.match(part, "^(%d+)")
-		AddSpell(seen, values, id, prefix)
-	end
+	values[key] = SpellName(spellID) .. " (" .. key .. ")"
 end
 
 local function CategoryEnum(name)
@@ -128,26 +114,6 @@ local function IsEffectCategory(cat)
 		or cat == groupBuff
 		or cat == specTracked
 		or cat == equipTracked
-end
-
-local function EffectCategoryPrefix(cat, info, L)
-	local trackedBuff = CategoryEnum("TrackedBuff")
-	local trackedBar = CategoryEnum("TrackedBar")
-	local groupBuff = CategoryEnum("GroupBuff")
-	local invisible = info and info.isInvisible
-	if invisible then
-		return L["CDM_EFFECT_HIDDEN"] or "Not displayed"
-	end
-	if cat == trackedBuff then
-		return L["BLOCK_BUFF"] or "Buff icons"
-	end
-	if cat == trackedBar then
-		return L["BLOCK_BUFF_BAR"] or "Buff bars"
-	end
-	if cat == groupBuff then
-		return L["CDM_EFFECT_GROUP"] or "Group buffs"
-	end
-	return L["CDM_EFFECT_HIDDEN"] or "Not displayed"
 end
 
 -- Effect spells only (buff icons / buff bars / hidden), including inactive & unlearned.
@@ -181,11 +147,10 @@ function GCDM:GetAuraSoundSpellValues()
 							local infoCat = info.category or cat
 							-- Never list Essential/Utility abilities.
 							if spellID and IsEffectCategory(infoCat) then
-								local prefix = EffectCategoryPrefix(infoCat, info, L)
-								AddSpell(seen, values, spellID, prefix)
+								AddSpell(seen, values, spellID)
 								if type(info.linkedSpellIDs) == "table" then
 									for k = 1, #info.linkedSpellIDs do
-										AddSpell(seen, values, info.linkedSpellIDs[k], prefix)
+										AddSpell(seen, values, info.linkedSpellIDs[k])
 									end
 								end
 							end
@@ -203,26 +168,19 @@ function GCDM:GetAuraSoundSpellValues()
 			local buff = registry.Buff and registry:Buff()
 			if buff then
 				local icons = Skin.CollectIconFrames(buff)
-				local prefix = L["BLOCK_BUFF"] or "Buff icons"
 				for j = 1, #icons do
-					AddSpell(seen, values, GetFrameSpellID(icons[j]), prefix)
+					AddSpell(seen, values, GetFrameSpellID(icons[j]))
 				end
 			end
 			if Skin.CollectBarFrames and registry.BuffBar then
 				local bars = Skin.CollectBarFrames(registry:BuffBar())
-				local prefix = L["BLOCK_BUFF_BAR"] or "Buff bars"
 				for j = 1, #bars do
-					AddSpell(seen, values, GetFrameSpellID(bars[j]), prefix)
+					AddSpell(seen, values, GetFrameSpellID(bars[j]))
 				end
 			end
 		end
 	end
 
-	local db = self:GetDB()
-	if db then
-		ParseIdList(db.auraBarSpellIDs, seen, values, L["BLOCK_AURA"] or "Aura")
-		ParseIdList(db.auraAppSpellIDs, seen, values, L["BLOCK_AURA"] or "Aura")
-	end
 	values["custom"] = L["AURA_SOUNDS_SPELL_CUSTOM"] or "Custom spell ID…"
 	return values
 end
