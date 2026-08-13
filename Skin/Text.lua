@@ -319,6 +319,9 @@ local function StyleStackText(frame, style, viewerKey)
 		return
 	end
 
+	-- ChargeCount show/alpha are Secret Values — never branch on IsShown/GetAlpha.
+	-- Only restyle font/layout; Blizzard keeps visibility.
+
 	local path = Skin.FetchFont(style.textFont or "Expressway")
 	local size = style.stackFontSize or 12
 	local outline = ResolveOutline(style.textOutline)

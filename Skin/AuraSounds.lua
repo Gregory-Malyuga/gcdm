@@ -2,21 +2,14 @@ local ADDON_NAME, ns = ...
 local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 local Skin = GCDM.Skin
 
--- Combat-safe aura sounds:
---   SoundKit → C_UnitAuras.AddAuraSound (apply / stack / remove)
---   LibSharedMedia → PlaySoundFile on apply/remove via UNIT_AURA (stack stays SoundKit-only)
+-- Aura sounds (Ayije-like, clean-room):
+-- Hook Blizzard CDM buff/bar TriggerAuraAppliedAlert / TriggerAuraRemovedAlert,
+-- then PlaySound (SoundKit) or PlaySoundFile (LibSharedMedia).
+-- No C_UnitAuras.AddAuraSound — unreliable for many combat auras / stack buffs.
 
-local handles = {}
-local lsmRules = {} -- rules that need UNIT_AURA + PlaySoundFile
-local knownAuras = {} -- [unit][spellID] = true
 local applying = false
-local watchFrame
-
-local EVENT_TO_KEY = {
-	apply = "onApply",
-	stack = "onApplication",
-	remove = "onRemove",
-}
+local lastPlay = {} -- [spellID..":"..event] = GetTime()
+local THROTTLE = 0.35
 
 local KIT_PRESETS = {
 	{ id = 878, label = "UI Quest Complete" },
@@ -27,24 +20,6 @@ local KIT_PRESETS = {
 	{ id = 18019, label = "UI Bonus Loot Roll" },
 	{ id = 11466, label = "UI EpicLoot Toast" },
 }
-
-local function ClearHandles()
-	if not C_UnitAuras then
-		wipe(handles)
-		return
-	end
-	for i = 1, #handles do
-		local h = handles[i]
-		if h then
-			if C_UnitAuras.RemoveAuraSound then
-				pcall(C_UnitAuras.RemoveAuraSound, h)
-			elseif C_UnitAuras.RemoveAuraAppliedSound then
-				pcall(C_UnitAuras.RemoveAuraAppliedSound, h)
-			end
-		end
-	end
-	wipe(handles)
-end
 
 local function DefaultKit(db)
 	local kit = db and db.auraSoundDefaultKitID or 0
@@ -57,16 +32,9 @@ end
 local function SpellName(spellID)
 	if C_Spell and C_Spell.GetSpellName then
 		local ok, name = pcall(C_Spell.GetSpellName, spellID)
-		if ok and name then
+		if ok and name and name ~= "" then
 			return name
 		end
-	end
-	return tostring(spellID)
-end
-
-local function GetFrameSpellID(frame)
-	if Skin and Skin.GetFrameSpellID then
-		return Skin.GetFrameSpellID(frame)
 	end
 	return nil
 end
@@ -76,9 +44,19 @@ local function AddSpell(seen, values, spellID)
 	if not spellID or spellID <= 0 or seen[spellID] then
 		return
 	end
+	local name = SpellName(spellID)
+	if not name then
+		return
+	end
+	-- One dropdown entry per display name (IDs stay internal keys only).
+	for id, _ in pairs(seen) do
+		if type(id) == "number" and values[tostring(id)] == name then
+			seen[spellID] = true
+			return
+		end
+	end
 	seen[spellID] = true
-	local key = tostring(spellID)
-	values[key] = SpellName(spellID) .. " (" .. key .. ")"
+	values[tostring(spellID)] = name
 end
 
 local function CategoryEnum(name)
@@ -89,101 +67,84 @@ local function CategoryEnum(name)
 	return nil
 end
 
-local function IsEffectCategory(cat)
-	local trackedBuff = CategoryEnum("TrackedBuff")
-	local trackedBar = CategoryEnum("TrackedBar")
-	local groupBuff = CategoryEnum("GroupBuff")
-	local specTracked = CategoryEnum("SpecAgnosticTracked")
-	local equipTracked = CategoryEnum("EquipSlotTracked")
-	return cat == trackedBuff
-		or cat == trackedBar
-		or cat == groupBuff
-		or cat == specTracked
-		or cat == equipTracked
+-- Spell picker: only cooldowns assigned to the Buff icon row (BuffIconCooldownViewer).
+-- Do not dump whole TrackedBuff CategorySet — that lists every trackable class aura.
+
+local function IsInvisibleInfo(info)
+	if not info then
+		return true
+	end
+	-- 12.x: Blizzard marks "Not displayed" tracked buffs as invisible.
+	if info.isInvisible == true then
+		return true
+	end
+	return false
 end
 
--- Effect spells only (buff icons / buff bars / hidden), including inactive & unlearned.
--- Does NOT list Essential/Utility abilities.
+local function DisplaySpellID(info)
+	if not info then
+		return nil
+	end
+	return info.overrideTooltipSpellID or info.overrideSpellID or info.spellID
+end
+
+local function AddBuffInfoSpells(seen, values, info)
+	if not info or IsInvisibleInfo(info) then
+		return
+	end
+	local trackedBuff = CategoryEnum("TrackedBuff")
+	if trackedBuff and info.category and info.category ~= trackedBuff then
+		return
+	end
+	AddSpell(seen, values, DisplaySpellID(info))
+end
+
 function GCDM:GetAuraSoundSpellValues()
 	local values = {}
 	local seen = {}
-	local L = ns.L
 
-	local categories = {
-		CategoryEnum("TrackedBuff"),
-		CategoryEnum("TrackedBar"),
-		CategoryEnum("GroupBuff"),
-		CategoryEnum("EquipSlotTracked"),
-		-- Last: leftover / not-displayed / unlearned effect pool.
-		CategoryEnum("SpecAgnosticTracked"),
-	}
+	local registry = self.ViewerRegistry
+	local buffViewer = registry and registry.Buff and registry:Buff()
+	if buffViewer and Skin and Skin.CollectIconFrames then
+		local icons = Skin.CollectIconFrames(buffViewer)
+		for j = 1, #icons do
+			local frame = icons[j]
+			local info = frame and frame.cooldownInfo
+			if type(info) ~= "table" and frame and frame.cooldownID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
+				local ok, data = pcall(C_CooldownViewer.GetCooldownViewerCooldownInfo, frame.cooldownID)
+				if ok then
+					info = data
+				end
+			end
+			if type(info) == "table" then
+				AddBuffInfoSpells(seen, values, info)
+			else
+				AddSpell(seen, values, Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame))
+			end
+		end
+	end
 
-	if C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCategorySet and C_CooldownViewer.GetCooldownViewerCooldownInfo then
-		for i = 1, #categories do
-			local cat = categories[i]
-			if cat ~= nil then
-				-- true = include unlearned + not currently displayed.
-				local ok, ids = pcall(C_CooldownViewer.GetCooldownViewerCategorySet, cat, true)
-				if ok and type(ids) == "table" then
-					for j = 1, #ids do
-						local cdID = ids[j]
-						local okInfo, info = pcall(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
-						if okInfo and type(info) == "table" then
-							local spellID = info.spellID or info.overrideSpellID
-							local infoCat = info.category or cat
-							-- Never list Essential/Utility abilities.
-							if spellID and IsEffectCategory(infoCat) then
-								AddSpell(seen, values, spellID)
-								if type(info.linkedSpellIDs) == "table" then
-									for k = 1, #info.linkedSpellIDs do
-										AddSpell(seen, values, info.linkedSpellIDs[k])
-									end
-								end
-							end
+	-- Fallback when the viewer pool is empty: TrackedBuff entries that are not "Not displayed".
+	if next(seen) == nil and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCategorySet then
+		local trackedBuff = CategoryEnum("TrackedBuff")
+		if trackedBuff then
+			local ok, set = pcall(C_CooldownViewer.GetCooldownViewerCategorySet, trackedBuff, false)
+			if ok and type(set) == "table" then
+				for j = 1, #set do
+					local cdID = set[j]
+					local info
+					if C_CooldownViewer.GetCooldownViewerCooldownInfo then
+						local ok2, data = pcall(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
+						if ok2 then
+							info = data
 						end
 					end
+					AddBuffInfoSpells(seen, values, info)
 				end
 			end
 		end
 	end
 
-	-- Fallback: currently shown Buff / BuffBar viewer frames only (if API empty).
-	if next(seen) == nil then
-		local registry = self.ViewerRegistry
-		if registry and Skin and Skin.CollectIconFrames then
-			local buff = registry.Buff and registry:Buff()
-			if buff then
-				local icons = Skin.CollectIconFrames(buff)
-				for j = 1, #icons do
-					AddSpell(seen, values, GetFrameSpellID(icons[j]))
-				end
-			end
-			if Skin.CollectBarFrames and registry.BuffBar then
-				local bars = Skin.CollectBarFrames(registry:BuffBar())
-				for j = 1, #bars do
-					AddSpell(seen, values, GetFrameSpellID(bars[j]))
-				end
-			end
-		end
-	end
-
-	values["custom"] = L["AURA_SOUNDS_SPELL_CUSTOM"] or "Custom spell ID…"
-	return values
-end
-
-function GCDM:GetAuraSoundSoundValues()
-	local values = {}
-	local L = ns.L
-	for i = 1, #KIT_PRESETS do
-		local p = KIT_PRESETS[i]
-		values["kit:" .. p.id] = string.format("[Kit] %s (%d)", p.label, p.id)
-	end
-	if Skin and Skin.ListMedia then
-		local lsm = Skin.ListMedia("sound")
-		for name in pairs(lsm) do
-			values["lsm:" .. name] = (L["AURA_SOUNDS_LSM_PREFIX"] or "[Media] ") .. name
-		end
-	end
 	return values
 end
 
@@ -199,12 +160,10 @@ local function ParseSoundKey(key, db)
 	if lsm then
 		return "lsm", nil, lsm
 	end
-	-- Legacy numeric kit
 	local n = tonumber(key)
 	if n and n > 0 then
 		return "kit", n, nil
 	end
-	-- Bare LSM name
 	return "lsm", nil, key
 end
 
@@ -221,203 +180,197 @@ local function PlayLSM(name)
 	end
 end
 
+local function PlayKit(kit)
+	kit = tonumber(kit)
+	if not kit or kit <= 0 or not PlaySound then
+		return
+	end
+	pcall(PlaySound, kit, "Master")
+end
+
 function GCDM:PlayAuraSoundChoice(key)
 	local kind, kit, lsm = ParseSoundKey(key, self:GetDB())
 	if kind == "kit" then
-		kit = kit or DefaultKit(self:GetDB())
-		if PlaySound then
-			pcall(PlaySound, kit, "Master")
-		end
+		PlayKit(kit or DefaultKit(self:GetDB()))
 	else
 		PlayLSM(lsm)
 	end
 end
 
-function GCDM:PlayAuraSoundKit(kit)
-	-- Back-compat for older options calls.
-	self:PlayAuraSoundChoice("kit:" .. tostring(tonumber(kit) or DefaultKit(self:GetDB())))
+function GCDM:GetAuraSoundSoundValues()
+	local values = {}
+	for i = 1, #KIT_PRESETS do
+		local p = KIT_PRESETS[i]
+		values["kit:" .. p.id] = p.label
+	end
+	if Skin and Skin.ListMedia then
+		local lsm = Skin.ListMedia("sound")
+		for name in pairs(lsm) do
+			values["lsm:" .. name] = name
+		end
+	end
+	return values
 end
 
-local function RegisterKitRule(rule, db)
-	if not C_UnitAuras then
-		return
-	end
-	local spellID = tonumber(rule.spellID)
-	if not spellID or spellID <= 0 then
-		return
-	end
-	local event = rule.event or "apply"
-	local whenKey = EVENT_TO_KEY[event]
-	if not whenKey then
-		return
-	end
-	local unit = rule.unit or "player"
-	if unit ~= "player" and unit ~= "target" and unit ~= "focus" then
-		unit = "player"
-	end
-	local kind, kit = ParseSoundKey(rule.soundKey or rule.soundKitID, db)
-	if kind ~= "kit" then
-		-- LSM stack/apply handled elsewhere; kit path only here.
-		if event == "stack" then
-			kit = DefaultKit(db)
-		else
-			return
-		end
-	end
-	kit = kit or DefaultKit(db)
-
-	local opts = {
-		spellID = spellID,
-		unitToken = unit,
-		soundKitID = kit,
-	}
-	opts[whenKey] = true
-
-	if C_UnitAuras.AddAuraSound then
-		local ok, handle = pcall(C_UnitAuras.AddAuraSound, opts)
-		if ok and handle then
-			handles[#handles + 1] = handle
-			return
-		end
-		ok, handle = pcall(C_UnitAuras.AddAuraSound, spellID, kit)
-		if ok and handle then
-			handles[#handles + 1] = handle
-		end
-	elseif C_UnitAuras.AddAuraAppliedSound and whenKey == "onApply" then
-		local ok, handle = pcall(C_UnitAuras.AddAuraAppliedSound, opts)
-		if ok and handle then
-			handles[#handles + 1] = handle
-		end
-	end
-end
-
-local function UnitHasSpell(unit, spellID)
-	if not C_UnitAuras then
+local function SpellIDsMatch(ruleSpell, frameSpell)
+	ruleSpell = tonumber(ruleSpell)
+	frameSpell = tonumber(frameSpell)
+	if not ruleSpell or not frameSpell then
 		return false
 	end
-	if unit == "player" and C_UnitAuras.GetPlayerAuraBySpellID then
-		local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, spellID)
-		if ok and aura then
-			return true
-		end
+	if ruleSpell == frameSpell then
+		return true
 	end
-	-- Fallback: scan helpful/harmful (may be limited in combat).
-	local filters = { "HELPFUL", "HARMFUL" }
-	for fi = 1, #filters do
-		if C_UnitAuras.GetUnitAuras then
-			local ok, list = pcall(C_UnitAuras.GetUnitAuras, unit, filters[fi])
-			if ok and type(list) == "table" then
-				for i = 1, #list do
-					local aura = list[i]
-					local sid = aura and (aura.spellId or aura.spellID)
-					if sid == spellID then
-						return true
-					end
-				end
+	if Skin.SpellLookupIDs then
+		local a = Skin.SpellLookupIDs(ruleSpell)
+		for i = 1, #a do
+			if a[i] == frameSpell then
+				return true
+			end
+		end
+		local b = Skin.SpellLookupIDs(frameSpell)
+		for i = 1, #b do
+			if b[i] == ruleSpell then
+				return true
 			end
 		end
 	end
 	return false
 end
 
-local function EnsureKnown(unit)
-	knownAuras[unit] = knownAuras[unit] or {}
-	return knownAuras[unit]
+local function CanPlayNow()
+	if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then
+		return false
+	end
+	return true
 end
 
-local function OnUnitAura(unit)
-	if not unit then
+local function ThrottleOk(spellID, event)
+	local key = tostring(spellID) .. ":" .. tostring(event)
+	local now = GetTime and GetTime() or 0
+	local prev = lastPlay[key] or 0
+	if now - prev < THROTTLE then
+		return false
+	end
+	lastPlay[key] = now
+	return true
+end
+
+local function PlayRulesForSpell(spellID, event)
+	if not spellID or not CanPlayNow() then
 		return
 	end
-	local map = EnsureKnown(unit)
-	local interested = {}
-	for i = 1, #lsmRules do
-		local r = lsmRules[i]
-		if r.unit == unit then
-			interested[r.spellID] = interested[r.spellID] or {}
-			interested[r.spellID][#interested[r.spellID] + 1] = r
-		end
+	local db = GCDM:GetDB()
+	if not db or not db.enabled or db.auraSoundEnabled == false then
+		return
 	end
-	for spellID, rules in pairs(interested) do
-		local has = UnitHasSpell(unit, spellID)
-		local had = map[spellID] and true or false
-		if has and not had then
-			for j = 1, #rules do
-				if rules[j].event == "apply" then
-					local _, _, lsm = ParseSoundKey(rules[j].soundKey, GCDM:GetDB())
+	local rules = db.auraSoundRules
+	if type(rules) ~= "table" then
+		return
+	end
+	-- CDM buff alerts are always the player's aura show/hide.
+	if not ThrottleOk(spellID, event) then
+		return
+	end
+	for i = 1, #rules do
+		local rule = rules[i]
+		if rule and (rule.event or "apply") == event then
+			local unit = rule.unit or "player"
+			if unit == "player" and SpellIDsMatch(rule.spellID, spellID) then
+				local kind, kit, lsm = ParseSoundKey(rule.soundKey or rule.soundKitID, db)
+				if kind == "kit" then
+					PlayKit(kit or DefaultKit(db))
+				else
 					PlayLSM(lsm)
 				end
 			end
-		elseif (not has) and had then
-			for j = 1, #rules do
-				if rules[j].event == "remove" then
-					local _, _, lsm = ParseSoundKey(rules[j].soundKey, GCDM:GetDB())
-					PlayLSM(lsm)
-				end
-			end
 		end
-		map[spellID] = has or nil
 	end
 end
 
-local ApplyAuraSounds
+local function OnAuraApplied(frame)
+	local spellID = Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame)
+	PlayRulesForSpell(spellID, "apply")
+end
 
-local function EnsureWatchFrame()
-	if watchFrame then
+local function OnAuraRemoved(frame)
+	local spellID = Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame)
+	PlayRulesForSpell(spellID, "remove")
+end
+
+local function HookAuraFrame(frame)
+	if not frame or frame.GCDMAuraSoundHooked then
 		return
 	end
-	watchFrame = CreateFrame("Frame")
-	watchFrame:SetScript("OnEvent", function(_, event, unit)
-		if event == "UNIT_AURA" then
-			OnUnitAura(unit)
-		elseif event == "PLAYER_TARGET_CHANGED" then
-			knownAuras["target"] = {}
-			OnUnitAura("target")
-			ApplyAuraSounds()
-		elseif event == "PLAYER_FOCUS_CHANGED" then
-			knownAuras["focus"] = {}
-			OnUnitAura("focus")
-			ApplyAuraSounds()
-		end
-	end)
-	watchFrame:RegisterUnitEvent("UNIT_AURA", "player", "target", "focus")
-	watchFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-	watchFrame:RegisterEvent("PLAYER_FOCUS_CHANGED")
+	frame.GCDMAuraSoundHooked = true
+	if frame.TriggerAuraAppliedAlert then
+		hooksecurefunc(frame, "TriggerAuraAppliedAlert", function(f)
+			OnAuraApplied(f)
+		end)
+	end
+	if frame.TriggerAuraRemovedAlert then
+		hooksecurefunc(frame, "TriggerAuraRemovedAlert", function(f)
+			OnAuraRemoved(f)
+		end)
+	end
+	-- Buff bars / some templates expose applications refresh for stack ticks.
+	if frame.RefreshApplications then
+		hooksecurefunc(frame, "RefreshApplications", function(f)
+			if f and f:IsShown() then
+				PlayRulesForSpell(Skin.GetFrameSpellID and Skin.GetFrameSpellID(f), "stack")
+			end
+		end)
+	end
 end
 
-ApplyAuraSounds = function()
+local function HookViewerPool(viewer)
+	if not viewer then
+		return
+	end
+	local registry = GCDM.ViewerRegistry
+	if registry and registry.HookOnce then
+		registry:HookOnce(viewer, "GCDMAuraSoundAcquireHooked", "OnAcquireItemFrame", function(_, itemFrame)
+			HookAuraFrame(itemFrame)
+		end)
+	elseif viewer.OnAcquireItemFrame and not viewer.GCDMAuraSoundAcquireHooked then
+		viewer.GCDMAuraSoundAcquireHooked = true
+		hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, itemFrame)
+			HookAuraFrame(itemFrame)
+		end)
+	end
+	if Skin.CollectIconFrames then
+		local icons = Skin.CollectIconFrames(viewer)
+		for i = 1, #icons do
+			HookAuraFrame(icons[i])
+		end
+	end
+	if Skin.CollectBarFrames then
+		local bars = Skin.CollectBarFrames(viewer)
+		for i = 1, #bars do
+			HookAuraFrame(bars[i])
+		end
+	end
+end
+
+local function ApplyAuraSounds()
 	if applying then
 		return
 	end
 	applying = true
 	local ok, err = pcall(function()
-		ClearHandles()
-		wipe(lsmRules)
 		local db = GCDM:GetDB()
 		if not db or not db.enabled or db.auraSoundEnabled == false then
 			return
 		end
-		local rules = db.auraSoundRules
-		if type(rules) ~= "table" then
+		local registry = GCDM.ViewerRegistry
+		if not registry then
 			return
 		end
-		EnsureWatchFrame()
-		for i = 1, #rules do
-			local rule = rules[i]
-			local kind = ParseSoundKey(rule.soundKey or rule.soundKitID, db)
-			if kind == "lsm" and (rule.event == "apply" or rule.event == "remove") then
-				lsmRules[#lsmRules + 1] = rule
-			else
-				RegisterKitRule(rule, db)
-			end
+		if registry.Buff then
+			HookViewerPool(registry:Buff())
 		end
-		local seeded = {}
-		for i = 1, #lsmRules do
-			local u = lsmRules[i].unit or "player"
-			if not seeded[u] then
-				seeded[u] = true
-				OnUnitAura(u)
-			end
+		if registry.BuffBar then
+			HookViewerPool(registry:BuffBar())
 		end
 	end)
 	applying = false
@@ -447,7 +400,7 @@ function GCDM:AddAuraSoundRule(rule)
 		unit = rule.unit or "player",
 		event = rule.event or "apply",
 		soundKey = soundKey,
-		soundKitID = tonumber(rule.soundKitID) or 0, -- legacy field
+		soundKitID = tonumber(rule.soundKitID) or 0,
 	}
 	self:Refresh(self.CONST.REFRESH.STYLE)
 	return true
@@ -469,14 +422,6 @@ end
 GCDM:RegisterRefreshCallback("Skin.AuraSounds", function()
 	ApplyAuraSounds()
 end, 50, {
-	GCDM.CONST.REFRESH.ALL,
-	GCDM.CONST.REFRESH.STYLE,
-})
-
--- Target/focus token + LSM watch.
-GCDM:RegisterRefreshCallback("Skin.AuraSounds.Watch", function()
-	EnsureWatchFrame()
-end, 51, {
 	GCDM.CONST.REFRESH.ALL,
 	GCDM.CONST.REFRESH.STYLE,
 })

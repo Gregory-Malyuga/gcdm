@@ -7,6 +7,14 @@ function ns.BuildAuraSoundsArgs(addon, db)
 		addon:Refresh(addon.CONST.REFRESH.STYLE)
 	end
 
+	local function NotifyOptions()
+		LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+		local ACD = LibStub("AceConfigDialog-3.0", true)
+		if ACD and ACD.OpenFrames and ACD.OpenFrames[ADDON_NAME] and ACD.SelectGroup then
+			ACD:SelectGroup(ADDON_NAME, "auraSounds")
+		end
+	end
+
 	local function SpellLabel(spellID)
 		spellID = tonumber(spellID)
 		if not spellID then
@@ -14,11 +22,34 @@ function ns.BuildAuraSoundsArgs(addon, db)
 		end
 		if C_Spell and C_Spell.GetSpellName then
 			local ok, name = pcall(C_Spell.GetSpellName, spellID)
-			if ok and name then
-				return string.format("%s (%d)", name, spellID)
+			if ok and name and name ~= "" then
+				return name
 			end
 		end
-		return tostring(spellID)
+		return L["AURA_SOUNDS_SPELL_UNKNOWN"] or "Unknown"
+	end
+
+	local function SoundLabel(soundKey)
+		if type(soundKey) ~= "string" or soundKey == "" then
+			return "?"
+		end
+		local values = addon:GetAuraSoundSoundValues()
+		if values and values[soundKey] then
+			return values[soundKey]
+		end
+		local lsm = string.match(soundKey, "^lsm:(.+)$")
+		if lsm then
+			return lsm
+		end
+		local kit = string.match(soundKey, "^kit:(%d+)$")
+		if kit then
+			local kits = addon:GetAuraSoundSoundValues()
+			local key = "kit:" .. kit
+			if kits and kits[key] then
+				return kits[key]
+			end
+		end
+		return soundKey
 	end
 
 	local function EventLabel(event)
@@ -45,7 +76,7 @@ function ns.BuildAuraSoundsArgs(addon, db)
 		local d = db().auraSoundDraft
 		if type(d) ~= "table" then
 			d = {
-				spellSelect = "custom",
+				spellSelect = "",
 				spellID = "",
 				unit = "player",
 				event = "apply",
@@ -56,43 +87,68 @@ function ns.BuildAuraSoundsArgs(addon, db)
 		return d
 	end
 
-	local auraSoundsArgs
-	local function RebuildAuraSoundRuleArgs()
-		if not auraSoundsArgs then
-			return
-		end
-		for k in pairs(auraSoundsArgs) do
-			if type(k) == "string" and string.sub(k, 1, 5) == "rule_" then
-				auraSoundsArgs[k] = nil
+	local function FirstSpellKey()
+		local values = addon:GetAuraSoundSpellValues()
+		local first
+		for k in pairs(values) do
+			if type(k) == "string" and k ~= "" then
+				if not first or k < first then
+					first = k
+				end
 			end
 		end
-		auraSoundsArgs.rulesEmpty = nil
+		return first
+	end
+
+	local auraSoundsArgs
+	local listGen = 0
+
+	local function ClearDynamicRuleArgs(container)
+		if not container then
+			return
+		end
+		for k in pairs(container) do
+			if type(k) == "string" and (string.sub(k, 1, 5) == "rule_" or k == "rulesEmpty") then
+				container[k] = nil
+			end
+		end
+	end
+
+	local function RebuildAuraSoundRuleArgs()
+		if not auraSoundsArgs or not auraSoundsArgs.rulesList then
+			return
+		end
+		local container = auraSoundsArgs.rulesList.args
+		ClearDynamicRuleArgs(container)
+
+		listGen = listGen + 1
 		local rules = db().auraSoundRules or {}
 		if #rules == 0 then
-			auraSoundsArgs.rulesEmpty = {
+			container.rulesEmpty = {
 				type = "description",
 				name = L["AURA_SOUNDS_EMPTY"],
-				order = 50,
+				order = 1,
 				fontSize = "medium",
 			}
 			return
 		end
+
 		for i = 1, #rules do
 			local rule = rules[i]
 			local idx = i
 			local kit = tonumber(rule.soundKitID) or 0
-			local soundLabel = rule.soundKey or (kit > 0 and ("kit:" .. kit) or "default")
-			auraSoundsArgs["rule_" .. i] = {
+			local soundKey = rule.soundKey or (kit > 0 and ("kit:" .. kit) or "kit:878")
+			local key = string.format("rule_%d_%d", listGen, i)
+			container[key] = {
 				type = "group",
 				name = string.format(
-					"#%d  %s  В·  %s  В·  %s  В·  %s",
-					i,
+					"%s · %s · %s · %s",
 					SpellLabel(rule.spellID),
 					UnitLabel(rule.unit),
 					EventLabel(rule.event),
-					soundLabel
+					SoundLabel(soundKey)
 				),
-				order = 50 + i,
+				order = i,
 				inline = true,
 				args = {
 					test = {
@@ -101,7 +157,7 @@ function ns.BuildAuraSoundsArgs(addon, db)
 						order = 1,
 						width = "half",
 						func = function()
-							addon:PlayAuraSoundChoice(soundLabel)
+							addon:PlayAuraSoundChoice(soundKey)
 						end,
 					},
 					del = {
@@ -111,7 +167,8 @@ function ns.BuildAuraSoundsArgs(addon, db)
 						width = "half",
 						func = function()
 							addon:RemoveAuraSoundRule(idx)
-							LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+							RebuildAuraSoundRuleArgs()
+							NotifyOptions()
 						end,
 					},
 				},
@@ -139,19 +196,6 @@ function ns.BuildAuraSoundsArgs(addon, db)
 				RefreshSkin()
 			end,
 		},
-		defaultKit = {
-			type = "input",
-			name = L["AURA_SOUNDS_DEFAULT_KIT"],
-			desc = L["AURA_SOUNDS_DEFAULT_KIT_DESC"],
-			order = 3,
-			get = function()
-				return tostring(db().auraSoundDefaultKitID or 878)
-			end,
-			set = function(_, v)
-				db().auraSoundDefaultKitID = tonumber(v) or 878
-				RefreshSkin()
-			end,
-		},
 		draftHeader = {
 			type = "header",
 			name = L["AURA_SOUNDS_ADD"],
@@ -167,39 +211,20 @@ function ns.BuildAuraSoundsArgs(addon, db)
 			end,
 			get = function()
 				local d = Draft()
+				local values = addon:GetAuraSoundSpellValues()
 				local sel = d.spellSelect
-				if sel and sel ~= "custom" then
+				if sel and sel ~= "" and sel ~= "custom" and values[sel] then
 					return sel
 				end
-				if d.spellID and d.spellID ~= "" then
-					local values = addon:GetAuraSoundSpellValues()
-					if values[tostring(d.spellID)] then
-						return tostring(d.spellID)
-					end
+				if d.spellID and d.spellID ~= "" and values[tostring(d.spellID)] then
+					return tostring(d.spellID)
 				end
-				return "custom"
+				return FirstSpellKey()
 			end,
 			set = function(_, v)
 				local d = Draft()
 				d.spellSelect = v
-				if v ~= "custom" then
-					d.spellID = v
-				end
-			end,
-		},
-		draftSpell = {
-			type = "input",
-			name = L["AURA_SOUNDS_SPELL"],
-			desc = L["AURA_SOUNDS_SPELL_DESC"],
-			order = 11.5,
-			hidden = function()
-				return (Draft().spellSelect or "custom") ~= "custom"
-			end,
-			get = function()
-				return Draft().spellID or ""
-			end,
-			set = function(_, v)
-				Draft().spellID = v or ""
+				d.spellID = v
 			end,
 		},
 		draftUnit = {
@@ -247,8 +272,7 @@ function ns.BuildAuraSoundsArgs(addon, db)
 				if d.soundKey then
 					return d.soundKey
 				end
-				local kit = tonumber(d.soundKitID) or 878
-				return "kit:" .. kit
+				return "kit:878"
 			end,
 			set = function(_, v)
 				Draft().soundKey = v
@@ -261,7 +285,7 @@ function ns.BuildAuraSoundsArgs(addon, db)
 			width = "half",
 			func = function()
 				local d = Draft()
-				addon:PlayAuraSoundChoice(d.soundKey or ("kit:" .. tostring(d.soundKitID or 878)))
+				addon:PlayAuraSoundChoice(d.soundKey or "kit:878")
 			end,
 		},
 		draftAdd = {
@@ -271,30 +295,33 @@ function ns.BuildAuraSoundsArgs(addon, db)
 			width = "half",
 			func = function()
 				local d = Draft()
-				local spellID = d.spellID
-				if d.spellSelect and d.spellSelect ~= "custom" then
-					spellID = d.spellSelect
+				local spellID = d.spellSelect or d.spellID
+				if not spellID or spellID == "" or spellID == "custom" then
+					spellID = FirstSpellKey()
 				end
 				local ok = addon:AddAuraSoundRule({
 					spellID = spellID,
 					unit = d.unit,
 					event = d.event,
-					soundKey = d.soundKey or ("kit:" .. tostring(d.soundKitID or 878)),
+					soundKey = d.soundKey or "kit:878",
 				})
 				if ok then
-					LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON_NAME)
+					RebuildAuraSoundRuleArgs()
+					NotifyOptions()
+				else
+					print("|cff3bb273GCDM|r " .. (L["AURA_SOUNDS_ADD_FAIL"] or "Could not add sound rule (pick a buff)."))
 				end
 			end,
 		},
-		listHeader = {
-			type = "header",
+		rulesList = {
+			type = "group",
 			name = L["AURA_SOUNDS_LIST"],
 			order = 40,
+			inline = true,
+			args = {},
 		},
 	}
-
 
 	RebuildAuraSoundRuleArgs()
 	return auraSoundsArgs
 end
-

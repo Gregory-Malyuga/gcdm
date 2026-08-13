@@ -1807,16 +1807,20 @@ function ns.SetupOptions(addon)
 		type = "group",
 		name = L["BLOCK_ESSENTIAL"],
 		order = 2,
-		args = mergeArgs({
-			layoutHeader = { type = "header", name = L["LAYOUT"], order = 1 },
-			spacing = layoutArgs.spacing,
-			maxIconsPerRow = layoutArgs.maxIconsPerRow,
-			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
-			essW = sizeArgs.essW,
-			essH = sizeArgs.essH,
-			ess2W = sizeArgs.ess2W,
-			ess2H = sizeArgs.ess2H,
-		}, takePos("essential", 50), MakeIconTextArgs(V.ESSENTIAL, 100, true)),
+		args = mergeArgs(
+			{
+				layoutHeader = { type = "header", name = L["LAYOUT"], order = 1 },
+				spacing = layoutArgs.spacing,
+				maxIconsPerRow = layoutArgs.maxIconsPerRow,
+				sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
+				essW = sizeArgs.essW,
+				essH = sizeArgs.essH,
+				ess2W = sizeArgs.ess2W,
+				ess2H = sizeArgs.ess2H,
+			},
+			takePos("essential", 50),
+			MakeIconTextArgs(V.ESSENTIAL, 100, true)
+		),
 	}
 
 	if sizeArgs.utilW then
@@ -1831,11 +1835,15 @@ function ns.SetupOptions(addon)
 		type = "group",
 		name = L["BLOCK_UTILITY"],
 		order = 3,
-		args = mergeArgs({
-			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
-			utilW = sizeArgs.utilW,
-			utilH = sizeArgs.utilH,
-		}, takePos("utility", 50), MakeIconTextArgs(V.UTILITY, 100, true)),
+		args = mergeArgs(
+			{
+				sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
+				utilW = sizeArgs.utilW,
+				utilH = sizeArgs.utilH,
+			},
+			takePos("utility", 50),
+			MakeIconTextArgs(V.UTILITY, 100, true)
+		),
 	}
 
 	if sizeArgs.buffW then
@@ -1850,18 +1858,26 @@ function ns.SetupOptions(addon)
 		type = "group",
 		name = L["BLOCK_BUFF"],
 		order = 4,
-		args = mergeArgs({
-			sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
-			buffW = sizeArgs.buffW,
-			buffH = sizeArgs.buffH,
-		}, takePos("buff", 50), MakeIconTextArgs(V.BUFF, 100)),
+		args = mergeArgs(
+			{
+				sizeHeader = { type = "header", name = L["SIZE"], order = 10 },
+				buffW = sizeArgs.buffW,
+				buffH = sizeArgs.buffH,
+			},
+			takePos("buff", 50),
+			MakeIconTextArgs(V.BUFF, 100)
+		),
 	}
 
 	options.args.buffBar = {
 		type = "group",
 		name = L["BLOCK_BUFF_BAR"],
 		order = 5,
-		args = mergeArgs(takePos("buffBar", 1), skinArgs.buffBar.args, MakeBuffBarTextArgs(100)),
+		args = mergeArgs(
+			takePos("buffBar", 1),
+			skinArgs.buffBar.args,
+			MakeBuffBarTextArgs(100)
+		),
 	}
 	for k, v in pairs(options.args.buffBar.args) do
 		if type(k) == "string" and k:sub(1, 3) ~= "pos" and type(v) == "table" and v.order and v.order < 100 then
