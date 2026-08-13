@@ -78,7 +78,7 @@ local function HasDrawableIcon(frame)
 end
 
 -- Blizzard RefreshLayout keeps re-SetPoint'ing placed icons; snap back to our anchor.
--- Do NOT snap parked (-10000) slots — aura Show without RefreshLayout would trap them off-screen.
+-- Do NOT snap parked (PARK_OFFSET) slots — aura Show without RefreshLayout would trap them off-screen.
 local function InstallAnchorSnapBack(frame)
 	if frame.GCDMSnapHooked then
 		return
@@ -106,7 +106,7 @@ local function EnsureIconLifecycleHooks(frame)
 	frame.GCDMIconLifeHooked = true
 	frame:HookScript("OnShow", function(self)
 		self.GCDMParked = false
-		if self.GCDMAnchor and self.GCDMAnchor[4] == -10000 then
+		if self.GCDMAnchor and self.GCDMAnchor[4] == (Skin.PARK_OFFSET or -10000) then
 			self.GCDMAnchor = nil
 		end
 		self:SetAlpha(1)
@@ -125,7 +125,7 @@ local function ParkEmptyIcon(frame, viewer)
 	frame.GCDMApplyingAnchor = true
 	frame:ClearAllPoints()
 	if viewer then
-		frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", -10000, 0)
+		frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", Skin.PARK_OFFSET or -10000, 0)
 	end
 	frame.GCDMApplyingAnchor = false
 	frame:SetAlpha(0)
@@ -212,7 +212,7 @@ local function LayoutEssential(viewer, db)
 
 	viewer:SetSize(Pixel.Snap(containerW), Pixel.Snap(containerH))
 	-- Full configured row width for BuffBar (not actual icon count).
-	Skin.EssentialLayoutWidth = Pixel.Snap(RowWidth(maxRow, row1W, spacing))
+	Skin.EssentialLayoutWidth = Skin.EssentialWidthFormula(db)
 
 	for i = 1, total do
 		local frame = icons[i]
@@ -261,22 +261,6 @@ local function ApplyLayout()
 		return
 	end
 
-	-- One-shot: old default spacing=1 was inflated to ~2px by SnapGap floor.
-	if db.spacingTightDefault == nil then
-		db.spacingTightDefault = true
-		if db.spacing == nil or db.spacing == 1 then
-			db.spacing = 0
-		end
-	end
-	-- Match buff icon row to Essential size (was 40×36).
-	if db.buffIconSizeSynced == nil then
-		db.buffIconSizeSynced = true
-		local sb = db.sizeBuff
-		if sb and sb.w == 40 and sb.h == 36 then
-			sb.w, sb.h = 46, 40
-		end
-	end
-
 	local registry = GCDM.ViewerRegistry
 	local essential = registry:Essential()
 	if essential then
@@ -318,7 +302,17 @@ QueuePostBlizzardLayout = function()
 end
 
 local function HookViewerRefreshLayout(viewer)
-	if not viewer or viewer.GCDMRefreshLayoutHooked then
+	if not viewer then
+		return
+	end
+	local Registry = GCDM.ViewerRegistry
+	if Registry and Registry.HookOnce then
+		Registry:HookOnce(viewer, "GCDMRefreshLayoutHooked", "RefreshLayout", function()
+			QueuePostBlizzardLayout()
+		end)
+		return
+	end
+	if viewer.GCDMRefreshLayoutHooked then
 		return
 	end
 	viewer.GCDMRefreshLayoutHooked = true

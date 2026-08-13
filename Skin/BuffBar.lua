@@ -499,36 +499,6 @@ local function ApplyBuffBars()
 			return
 		end
 
-		-- Force SharedMedia solid style (profile may still say blizzard).
-		if db.buffBarSolidStyleV2 == nil then
-			db.buffBarSolidStyleV2 = true
-			db.buffBarStyle = "solid"
-			if not db.buffBarTexture then
-				db.buffBarTexture = "Solid"
-			end
-		end
-
-		-- One-shot migrate stock thick Blizzard bars → thin solid Essential-width.
-		if db.buffBarTightDefault == nil then
-			db.buffBarTightDefault = true
-			if (db.buffBarStyle or "blizzard") == "blizzard" then
-				db.buffBarStyle = "solid"
-			end
-			if (db.buffBarHeight or 20) >= 20 then
-				db.buffBarHeight = 16
-			end
-			if (db.buffBarSpacing or 0) >= 2 then
-				db.buffBarSpacing = 0
-			end
-			if (db.buffBarIconGap or 0) >= 1 then
-				db.buffBarIconGap = 0
-			end
-			local sb = db.sizeBuff
-			if sb and sb.w == 40 and sb.h == 36 then
-				sb.w, sb.h = 46, 40
-			end
-		end
-
 		local viewer = GCDM.ViewerRegistry:BuffBar()
 		if not viewer then
 			last.err = "no-viewer"

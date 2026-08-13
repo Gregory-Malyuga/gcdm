@@ -65,22 +65,8 @@ local function SpellName(spellID)
 end
 
 local function GetFrameSpellID(frame)
-	if not frame then
-		return nil
-	end
-	if type(frame.spellID) == "number" then
-		return frame.spellID
-	end
-	local info = frame.cooldownInfo
-	if info and type(info.spellID) == "number" then
-		return info.spellID
-	end
-	local cdID = frame.cooldownID
-	if cdID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
-		local ok, data = pcall(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
-		if ok and data and type(data.spellID) == "number" then
-			return data.spellID
-		end
+	if Skin and Skin.GetFrameSpellID then
+		return Skin.GetFrameSpellID(frame)
 	end
 	return nil
 end
@@ -221,6 +207,9 @@ local function ParseSoundKey(key, db)
 	-- Bare LSM name
 	return "lsm", nil, key
 end
+
+ns.Testables = ns.Testables or {}
+ns.Testables.ParseSoundKey = ParseSoundKey
 
 local function PlayLSM(name)
 	if not name or not Skin or not Skin.FetchMedia then

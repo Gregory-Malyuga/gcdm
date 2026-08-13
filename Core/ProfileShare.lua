@@ -72,6 +72,10 @@ local function NormalizeWire(str)
 	return normalized
 end
 
+ns.Testables = ns.Testables or {}
+ns.Testables.SanitizeProfile = SanitizeProfile
+ns.Testables.NormalizeWire = NormalizeWire
+
 function GCDM:ExportProfileString(profileName)
 	if not EncodingReady() then
 		return nil, "encoding_unavailable"

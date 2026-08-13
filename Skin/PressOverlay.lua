@@ -146,35 +146,10 @@ local function HideAllOverlays()
 end
 
 local function SpellAliases(spellID)
-	local ids = {}
-	local seen = {}
-	local function add(id)
-		id = tonumber(id)
-		if id and id > 0 and not seen[id] then
-			seen[id] = true
-			ids[#ids + 1] = id
-		end
+	if Skin.SpellLookupIDs then
+		return Skin.SpellLookupIDs(spellID)
 	end
-	add(spellID)
-	if C_Spell and C_Spell.GetBaseSpell then
-		local ok, base = pcall(C_Spell.GetBaseSpell, spellID)
-		if ok then
-			add(base)
-		end
-	end
-	if FindBaseSpellByID then
-		local ok, base = pcall(FindBaseSpellByID, spellID)
-		if ok then
-			add(base)
-		end
-	end
-	if FindSpellOverrideByID then
-		local ok, ov = pcall(FindSpellOverrideByID, spellID)
-		if ok then
-			add(ov)
-		end
-	end
-	return ids
+	return { tonumber(spellID) }
 end
 
 local function CountKeys(t)

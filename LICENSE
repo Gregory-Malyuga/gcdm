@@ -1,0 +1,37 @@
+Copyright (c) 2026 GCDM authors. All Rights Reserved.
+
+PROPRIETARY SOFTWARE LICENSE
+
+This software (GCDM), including its source code, documentation, and
+non-third-party assets, is the exclusive property of the copyright holders.
+
+Permission is NOT granted to copy, modify, merge, publish, distribute,
+sublicense, sell, reverse engineer for redistribution, or create derivative
+works based on this software, in whole or in part, without prior written
+permission from the copyright holders.
+
+You MAY:
+  - Install and use this addon for personal World of Warcraft gameplay.
+  - Keep a private local copy for personal backup.
+
+You MAY NOT:
+  - Redistribute this addon or its source (publicly or privately) without
+    written permission.
+  - Rebrand, reupload, or claim authorship of this code.
+  - Incorporate this code into another addon or commercial product without
+    written permission.
+
+THIRD-PARTY LIBRARIES
+
+Files under Libs/ are covered by their own licenses (Ace3, LibStub,
+CallbackHandler-1.0, LibSharedMedia-3.0, etc.) and are excluded from the
+restrictions above to the extent required by those licenses.
+
+DISCLAIMER
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. THE AUTHORS ARE NOT LIABLE FOR ANY DAMAGES ARISING FROM USE OF
+THIS SOFTWARE.
+
+World of Warcraft® is a trademark of Blizzard Entertainment, Inc. This
+addon is not affiliated with or endorsed by Blizzard Entertainment.

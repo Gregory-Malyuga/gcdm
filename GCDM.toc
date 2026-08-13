@@ -1,9 +1,11 @@
 ## Interface: 120100
 ## Title: |cFF3bb273GCDM|r
-## Notes: Cooldown Manager skin and layout editor
-## Notes-ruRU: Скин и редактор раскладки Cooldown Manager
+## Notes: Skin Blizzard Cooldown Manager — layout, fonts, keybinds, power bar, glow, aura sounds. /gcdm
+## Notes-ruRU: Скин Blizzard Cooldown Manager — раскладка, шрифты, бинды, ресурс, glow, звуки аур. /gcdm
 ## Author: GCDM
 ## Version: 0.1.0
+## X-License: Proprietary — All Rights Reserved (see LICENSE)
+## IconTexture: Interface\AddOns\GCDM\Media\GCDM_Logo
 ## SavedVariables: GCDMDB
 ## OptionalDeps: SharedMedia, SharedMediaAdditionalFonts
 ## DefaultState: enabled
@@ -18,6 +20,7 @@ Core\Pixel.lua
 Core\EditMode.lua
 Core\ViewerRegistry.lua
 Core\ProfileShare.lua
+Core\Migrations.lua
 DB\Defaults.lua
 Locales\enUS.lua
 Locales\ruRU.lua
@@ -37,5 +40,23 @@ Skin\BuffBar.lua
 Skin\PowerBar.lua
 Skin\AuraSounds.lua
 Skin\Debug.lua
+Skin\Tests\Harness.lua
+Skin\Tests\Logic\Refresh.lua
+Skin\Tests\Logic\ProfileShare.lua
+Skin\Tests\Logic\PowerBarCurve.lua
+Skin\Tests\Logic\KeybindSlots.lua
+Skin\Tests\Logic\TextStyle.lua
+Skin\Tests\Logic\AuraSoundKeys.lua
+Skin\Tests\Logic\WidthFormula.lua
+Skin\Tests\Behavior\Viewers.lua
+Skin\Tests\Behavior\LayoutEssential.lua
+Skin\Tests\Behavior\LayoutUtility.lua
+Skin\Tests\Behavior\LayoutBuff.lua
+Skin\Tests\Behavior\BuffBar.lua
+Skin\Tests\Behavior\PowerBar.lua
+Skin\Tests\Behavior\Chrome.lua
+Skin\Tests\Behavior\Pixel.lua
 Skin\Tests.lua
+Options\ProfileShare.lua
+Options\AuraSounds.lua
 Options\Options.lua

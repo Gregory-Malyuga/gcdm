@@ -48,8 +48,11 @@ SavedVariables: `GCDMDB`
 | Buff group split / per-group options | упрощённый BuffGroups |
 | Trinkets / Racials / Defensives trackers | один общий `Tracker` base, 3 пресета |
 | Aura appear sound per group | `Skin.AuraSounds` / `AddAuraSound` (apply/stack/remove; без порога N стаков) |
-| Profiles + import/export | AceDB profiles + LibSerialize/Deflate **или** простой string IO |
+| Profiles + import/export | AceDB + `Core/ProfileShare` (`!GCDM:1!`) |
 | Edit Mode coexistence | не ломать Blizzard movers; scale lock = 1 на managed frames |
+
+### Documented CDM debt (keep)
+- Empty-icon park (`Skin.PARK_OFFSET`), BuffBar deferred mutate, Icon flash/bling suppress, PressOverlay active poll
 
 ### P2 — «оставшиеся 20%» (не в v1)
 

@@ -243,7 +243,7 @@ local function FindSlotsForSpell(spellID)
 	return out
 end
 
-local function SpellLookupIDs(spellID)
+function Skin.SpellLookupIDs(spellID)
 	local ids = {}
 	local seen = {}
 	local function add(id)
@@ -273,6 +273,10 @@ local function SpellLookupIDs(spellID)
 		end
 	end
 	return ids
+end
+
+local function SpellLookupIDs(spellID)
+	return Skin.SpellLookupIDs(spellID)
 end
 
 local function ComputeShortestText(spellID)

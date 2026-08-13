@@ -287,29 +287,7 @@ end
 function Skin.InitSharedMedia()
 	Skin.RegisterMediaDefaults()
 	Skin.RegisterExpresswayAlias()
-	-- One-shot: switch stock Friz default to Expressway (ElvUI-style).
-	local db = GCDM.GetDB and GCDM:GetDB()
-	if db and not db.expresswayDefaultApplied then
-		db.expresswayDefaultApplied = true
-		local preferred = Skin.DefaultFontName()
-		if preferred and preferred ~= "Friz Quadrata TT" then
-			db.textByViewer = db.textByViewer or {}
-			for _, key in ipairs({
-				"EssentialCooldownViewer",
-				"UtilityCooldownViewer",
-				"BuffIconCooldownViewer",
-				"BuffBarCooldownViewer",
-			}) do
-				local st = db.textByViewer[key]
-				if type(st) == "table" and (not st.textFont or st.textFont == "Friz Quadrata TT") then
-					st.textFont = preferred
-				end
-			end
-			if not db.powerBarFont or db.powerBarFont == "Friz Quadrata TT" then
-				db.powerBarFont = preferred
-			end
-		end
-	end
+	-- Expressway DB migration lives in Core/Migrations.lua
 	local lib = EnsureLSM()
 	if lib and lib.RegisterCallback and not Skin._lsmCallbacks then
 		Skin._lsmCallbacks = true
