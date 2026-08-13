@@ -42,9 +42,75 @@ function ns.SetupOptions(addon)
 		return c.r or 1, c.g or 1, c.b or 1, c.a or 1
 	end
 
+	local function OpenBlizzardEditMode()
+		if InCombatLockdown and InCombatLockdown() then
+			print("|cff3bb273GCDM|r: Edit Mode unavailable in combat.")
+			return
+		end
+		local function show()
+			local em = _G.EditModeManagerFrame
+			if not em then
+				return false
+			end
+			if em.EnterEditMode then
+				pcall(function()
+					em:EnterEditMode()
+				end)
+			end
+			if ShowUIPanel then
+				ShowUIPanel(em)
+			elseif em.Show then
+				em:Show()
+			end
+			return (em.IsShown and em:IsShown()) or (em.IsEditModeActive and em:IsEditModeActive())
+		end
+		if show() then
+			return
+		end
+		if C_AddOns and C_AddOns.LoadAddOn then
+			pcall(C_AddOns.LoadAddOn, "Blizzard_EditMode")
+		elseif LoadAddOn then
+			pcall(LoadAddOn, "Blizzard_EditMode")
+		end
+		show()
+	end
+
+	local function OpenBlizzardCooldownViewerSettings()
+		if InCombatLockdown and InCombatLockdown() then
+			print("|cff3bb273GCDM|r: Cooldown Manager settings unavailable in combat.")
+			return
+		end
+		local function show()
+			local panel = _G.CooldownViewerSettings
+			if not panel then
+				return false
+			end
+			if ShowUIPanel then
+				ShowUIPanel(panel)
+			elseif panel.Show then
+				panel:Show()
+			end
+			return panel.IsShown and panel:IsShown()
+		end
+		if show() then
+			return
+		end
+		if C_AddOns and C_AddOns.LoadAddOn then
+			pcall(C_AddOns.LoadAddOn, "Blizzard_CooldownViewer")
+		elseif LoadAddOn then
+			pcall(LoadAddOn, "Blizzard_CooldownViewer")
+		end
+		if not show() then
+			-- Settings often live next to Edit Mode; open EM as fallback entry point.
+			OpenBlizzardEditMode()
+			print("|cff3bb273GCDM|r: Open Cooldown Viewer from Edit Mode if the panel did not appear.")
+		end
+	end
+
 	local options = {
 		type = "group",
 		name = L["ADDON_NAME"],
+		childGroups = "tab",
 		args = {
 			general = {
 				type = "group",
@@ -138,12 +204,12 @@ function ns.SetupOptions(addon)
 				type = "group",
 				name = L["SKIN"],
 				order = 2,
+				childGroups = "tab",
 				args = {
 					layout = {
 						type = "group",
 						name = L["LAYOUT"],
 						order = 1,
-						inline = true,
 						args = {
 							pixelSnap = {
 								type = "toggle",
@@ -199,7 +265,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["POSITIONS"],
 						order = 1.5,
-						inline = true,
 						args = (function()
 							local args = {
 								hint = {
@@ -347,7 +412,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["SIZE"],
 						order = 2,
-						inline = true,
 						args = {
 							essW = {
 								type = "range",
@@ -475,7 +539,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["BORDER"],
 						order = 3,
-						inline = true,
 						args = {
 							borderSize = {
 								type = "range",
@@ -545,7 +608,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["TEXT"],
 						order = 3.5,
-						inline = true,
 						args = {
 							textFont = {
 								type = "select",
@@ -767,7 +829,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["GLOW"],
 						order = 4,
-						inline = true,
 						args = {
 							glowEnabled = {
 								type = "toggle",
@@ -903,7 +964,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["BUFF_BAR"],
 						order = 5,
-						inline = true,
 						args = {
 							buffBarEnabled = {
 								type = "toggle",
@@ -1082,7 +1142,6 @@ function ns.SetupOptions(addon)
 						type = "group",
 						name = L["POWER_BAR"],
 						order = 6,
-						inline = true,
 						args = {
 							powerBarEnabled = {
 								type = "toggle",
@@ -1221,38 +1280,10 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
-							powerBarUseCustomColor = {
-								type = "toggle",
-								name = L["POWER_BAR_CUSTOM_COLOR"],
-								order = 10,
-								get = function()
-									return db().powerBarUseCustomColor == true
-								end,
-								set = function(_, v)
-									db().powerBarUseCustomColor = v and true or false
-									RefreshSkin(addon)
-								end,
-							},
-							powerBarColor = {
-								type = "color",
-								name = L["POWER_BAR_COLOR"],
-								order = 11,
-								hasAlpha = true,
-								disabled = function()
-									return db().powerBarUseCustomColor ~= true
-								end,
-								get = function()
-									return getColor("powerBarColor", { r = 0.55, g = 0.1, b = 0.1, a = 1 })
-								end,
-								set = function(_, r, g, b, a)
-									setColor("powerBarColor", r, g, b, a)
-									RefreshSkin(addon)
-								end,
-							},
 							powerBarBackgroundColor = {
 								type = "color",
 								name = L["POWER_BAR_BG_COLOR"],
-								order = 12,
+								order = 9.5,
 								hasAlpha = true,
 								get = function()
 									return getColor("powerBarBackgroundColor", { r = 0.1, g = 0.1, b = 0.1, a = 0.85 })
@@ -1265,7 +1296,7 @@ function ns.SetupOptions(addon)
 							powerBarTextColor = {
 								type = "color",
 								name = L["POWER_BAR_TEXT_COLOR"],
-								order = 13,
+								order = 9.6,
 								hasAlpha = true,
 								get = function()
 									return getColor("powerBarTextColor", { r = 1, g = 1, b = 1, a = 1 })
@@ -1275,13 +1306,260 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							powerBarEditClass = {
+								type = "select",
+								name = L["POWER_BAR_EDIT_CLASS"],
+								desc = L["POWER_BAR_EDIT_CLASS_DESC"],
+								order = 10,
+								width = "full",
+								values = function()
+									local t = {}
+									local files = addon.Skin.PowerBarClassFiles or { "DEFAULT" }
+									for i = 1, #files do
+										t[files[i]] = files[i]
+									end
+									return t
+								end,
+								get = function()
+									return db().powerBarEditClass or "DEFAULT"
+								end,
+								set = function(_, v)
+									db().powerBarEditClass = v
+								end,
+							},
+							powerBarColorMode = {
+								type = "select",
+								name = L["POWER_BAR_COLOR_MODE"],
+								desc = L["POWER_BAR_COLOR_MODE_DESC"],
+								order = 11,
+								values = {
+									class = L["POWER_BAR_MODE_CLASS"],
+									solid = L["POWER_BAR_MODE_SOLID"],
+									curve = L["POWER_BAR_MODE_CURVE"],
+								},
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class"
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "colorMode", v)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarSolidColor = {
+								type = "color",
+								name = L["POWER_BAR_COLOR"],
+								order = 12,
+								hasAlpha = true,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "solid"
+								end,
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									local c = addon.Skin.GetPowerBarProfile(db(), cls).solidColor
+										or { r = 0.55, g = 0.1, b = 0.1, a = 1 }
+									return c.r or 1, c.g or 1, c.b or 1, c.a or 1
+								end,
+								set = function(_, r, g, b, a)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "solidColor", { r = r, g = g, b = b, a = a })
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarCurveMode = {
+								type = "select",
+								name = L["POWER_BAR_CURVE_MODE"],
+								desc = L["POWER_BAR_CURVE_MODE_DESC"],
+								order = 13,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
+								end,
+								values = {
+									absolute = L["POWER_BAR_CURVE_ABS"],
+									percent = L["POWER_BAR_CURVE_PCT"],
+								},
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).curveMode or "absolute"
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "curveMode", v)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarCurvePoints = {
+								type = "input",
+								name = L["POWER_BAR_CURVE_POINTS"],
+								desc = L["POWER_BAR_CURVE_POINTS_DESC"],
+								order = 14,
+								width = "full",
+								multiline = true,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
+								end,
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).curvePointsStr or ""
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "curvePointsStr", v or "")
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarPresetOverflow = {
+								type = "execute",
+								name = L["POWER_BAR_PRESET_OVERFLOW"],
+								order = 14.5,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
+								end,
+								func = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "curveMode", "absolute")
+									addon.Skin.SetPowerBarProfileField(
+										db(),
+										cls,
+										"curvePointsStr",
+										"0:1,0.85,0.1,1|100:1,0.85,0.1,1|100.01:1,1,1,1|200:1,1,1,1"
+									)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarPresetPct = {
+								type = "execute",
+								name = L["POWER_BAR_PRESET_PCT"],
+								order = 14.6,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).colorMode or "class") ~= "curve"
+								end,
+								func = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "curveMode", "percent")
+									addon.Skin.SetPowerBarProfileField(
+										db(),
+										cls,
+										"curvePointsStr",
+										"0:1,0.2,0.2,1|0.35:1,0.85,0.2,1|0.7:0.2,0.9,0.3,1|1:1,1,1,1"
+									)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTickMode = {
+								type = "select",
+								name = L["POWER_BAR_TICK_MODE"],
+								order = 15,
+								values = {
+									none = L["POWER_BAR_TICK_NONE"],
+									equal = L["POWER_BAR_TICK_EQUAL"],
+									values = L["POWER_BAR_TICK_VALUES"],
+								},
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none"
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "tickMode", v)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTickCount = {
+								type = "range",
+								name = L["POWER_BAR_TICK_COUNT"],
+								order = 16,
+								min = 2,
+								max = 20,
+								step = 1,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") ~= "equal"
+								end,
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).tickCount or 4
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "tickCount", v)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTickAt = {
+								type = "input",
+								name = L["POWER_BAR_TICK_AT"],
+								desc = L["POWER_BAR_TICK_AT_DESC"],
+								order = 17,
+								width = "full",
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") ~= "values"
+								end,
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).tickAtStr or ""
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "tickAtStr", v or "")
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTickMax = {
+								type = "range",
+								name = L["POWER_BAR_TICK_MAX"],
+								order = 18,
+								min = 1,
+								max = 500,
+								step = 1,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") ~= "values"
+								end,
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return addon.Skin.GetPowerBarProfile(db(), cls).tickMax or 100
+								end,
+								set = function(_, v)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "tickMax", v)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTickColor = {
+								type = "color",
+								name = L["POWER_BAR_TICK_COLOR"],
+								order = 19,
+								hasAlpha = true,
+								disabled = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									return (addon.Skin.GetPowerBarProfile(db(), cls).tickMode or "none") == "none"
+								end,
+								get = function()
+									local cls = db().powerBarEditClass or "DEFAULT"
+									local c = addon.Skin.GetPowerBarProfile(db(), cls).tickColor
+										or { r = 1, g = 1, b = 1, a = 0.55 }
+									return c.r or 1, c.g or 1, c.b or 1, c.a or 1
+								end,
+								set = function(_, r, g, b, a)
+									local cls = db().powerBarEditClass or "DEFAULT"
+									addon.Skin.SetPowerBarProfileField(db(), cls, "tickColor", { r = r, g = g, b = b, a = a })
+									RefreshSkin(addon)
+								end,
+							},
 						},
 					},
 					auraBars = {
 						type = "group",
 						name = L["AURA_BARS"],
 						order = 7,
-						inline = true,
 						args = {
 							auraBarsEnabled = {
 								type = "toggle",
@@ -1314,6 +1592,76 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							auraAppSpellIDs = {
+								type = "input",
+								name = L["AURA_APP_SPELLS"],
+								desc = L["AURA_APP_SPELLS_DESC"],
+								order = 2.5,
+								width = "full",
+								multiline = false,
+								get = function()
+									return db().auraAppSpellIDs or ""
+								end,
+								set = function(_, v)
+									db().auraAppSpellIDs = v or ""
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							auraSoundLimitNote = {
+								type = "description",
+								name = L["AURA_SOUND_LIMIT_DESC"],
+								order = 2.6,
+								fontSize = "medium",
+							},
+							auraSoundOnApply = {
+								type = "toggle",
+								name = L["AURA_SOUND_APPLY"],
+								order = 2.7,
+								get = function()
+									return db().auraSoundOnApply == true
+								end,
+								set = function(_, v)
+									db().auraSoundOnApply = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							auraSoundOnStack = {
+								type = "toggle",
+								name = L["AURA_SOUND_STACK"],
+								order = 2.8,
+								get = function()
+									return db().auraSoundOnStack == true
+								end,
+								set = function(_, v)
+									db().auraSoundOnStack = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							auraSoundOnRemove = {
+								type = "toggle",
+								name = L["AURA_SOUND_REMOVE"],
+								order = 2.9,
+								get = function()
+									return db().auraSoundOnRemove == true
+								end,
+								set = function(_, v)
+									db().auraSoundOnRemove = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							auraSoundKitID = {
+								type = "input",
+								name = L["AURA_SOUND_KIT"],
+								order = 2.95,
+								get = function()
+									return tostring(db().auraSoundKitID or 0)
+								end,
+								set = function(_, v)
+									db().auraSoundKitID = tonumber(v) or 0
+									RefreshSkin(addon)
+								end,
+							},
 							auraBarHeight = {
 								type = "range",
 								name = L["AURA_BAR_HEIGHT"],
@@ -1340,6 +1688,18 @@ function ns.SetupOptions(addon)
 								end,
 								set = function(_, v)
 									db().auraBarShowName = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarShowTicks = {
+								type = "toggle",
+								name = L["AURA_BAR_SHOW_TICKS"],
+								order = 3.6,
+								get = function()
+									return db().auraBarShowTicks ~= false
+								end,
+								set = function(_, v)
+									db().auraBarShowTicks = v and true or false
 									RefreshSkin(addon)
 								end,
 							},
@@ -1420,6 +1780,19 @@ function ns.SetupOptions(addon)
 									RefreshSkin(addon)
 								end,
 							},
+							auraAppBarColor = {
+								type = "color",
+								name = L["AURA_APP_BAR_COLOR"],
+								order = 8.5,
+								hasAlpha = true,
+								get = function()
+									return getColor("auraAppBarColor", { r = 0.2, g = 0.85, b = 0.75, a = 1 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("auraAppBarColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
 							auraBarBackgroundColor = {
 								type = "color",
 								name = L["AURA_BAR_BG_COLOR"],
@@ -1441,9 +1814,61 @@ function ns.SetupOptions(addon)
 		},
 	}
 
+	-- Bars as top-level tab (Platynator-style fewer root tabs).
+	local skinArgs = options.args.skin.args
+	options.args.bars = {
+		type = "group",
+		name = L["BARS"],
+		order = 3,
+		childGroups = "tab",
+		args = {
+			buffBar = skinArgs.buffBar,
+			powerBar = skinArgs.powerBar,
+			auraBars = skinArgs.auraBars,
+		},
+	}
+	skinArgs.buffBar = nil
+	skinArgs.powerBar = nil
+	skinArgs.auraBars = nil
+
+	options.args.blizzard = {
+		type = "group",
+		name = L["BLIZZARD"],
+		order = 90,
+		args = {
+			hint = {
+				type = "description",
+				name = L["BLIZZARD_DESC"],
+				order = 1,
+				fontSize = "medium",
+			},
+			openEditMode = {
+				type = "execute",
+				name = L["BLIZZARD_EDIT_MODE"],
+				desc = L["BLIZZARD_EDIT_MODE_DESC"],
+				order = 2,
+				width = "full",
+				func = OpenBlizzardEditMode,
+			},
+			openCooldownViewer = {
+				type = "execute",
+				name = L["BLIZZARD_CDM_SETTINGS"],
+				desc = L["BLIZZARD_CDM_SETTINGS_DESC"],
+				order = 3,
+				width = "full",
+				func = OpenBlizzardCooldownViewerSettings,
+			},
+		},
+	}
+
 	options.args.profiles.order = 99
+	options.args.profiles.name = L["PROFILES"]
 
 	AceConfig:RegisterOptionsTable(ADDON_NAME, options)
-	AceConfigDialog:SetDefaultSize(ADDON_NAME, 720, 560)
+	AceConfigDialog:SetDefaultSize(ADDON_NAME, 820, 620)
 	AceConfigDialog:AddToBlizOptions(ADDON_NAME, L["ADDON_NAME"])
+
+	local status = AceConfigDialog:GetStatusTable(ADDON_NAME)
+	status.width = status.width or 820
+	status.height = status.height or 620
 end

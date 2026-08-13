@@ -82,14 +82,29 @@ ns.defaults = {
 		powerBarBackgroundTexture = "Solid",
 		powerBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.9 },
 		powerBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
-		powerBarUseCustomColor = false,
+		-- Global / DEFAULT profile (overridable per class in powerBarProfiles).
+		powerBarColorMode = "class", -- class | solid | curve
+		powerBarCurveMode = "absolute", -- absolute | percent
+		-- value:r,g,b,a | …  Example: yellow to 100, then white
+		powerBarCurvePointsStr = "0:1,0.85,0.1,1|100:1,0.85,0.1,1|100.01:1,1,1,1|200:1,1,1,1",
 		powerBarColor = { r = 0.55, g = 0.1, b = 0.1, a = 1 },
+		powerBarTickMode = "none", -- none | equal | values
+		powerBarTickCount = 4,
+		powerBarTickAtStr = "25,50,75,100",
+		powerBarTickMax = 100,
+		powerBarTickColor = { r = 1, g = 1, b = 1, a = 0.55 },
 		powerBarSecondaryUseCustomColor = false,
 		powerBarSecondaryColor = { r = 0.9, g = 0.85, b = 0.2, a = 1 },
+		powerBarProfiles = {}, -- [CLASSFILE] = { colorMode, curveMode, curvePointsStr, … }
+		powerBarEditClass = "DEFAULT", -- UI only last-selected class in options
 
-		-- Custom aura duration strips (spell IDs). Same look as thin BuffBar (h≈6, no labels).
+		-- Custom aura strips (12.1 AuraContainer slots when available; legacy fallback).
+		-- Duration: auraBarSpellIDs = "6673,32216"
+		-- Applications (e.g. Whirlwind): auraAppSpellIDs = "85739:4" (spell:maxStacks + ticks)
+		-- Sounds: apply / each stack / remove only — NOT "only at N stacks" (impossible in combat).
 		auraBarsEnabled = false,
 		auraBarSpellIDs = "",
+		auraAppSpellIDs = "",
 		auraBarWidth = 0,
 		auraBarHeight = 6,
 		auraBarSpacing = 1,
@@ -99,8 +114,14 @@ ns.defaults = {
 		auraBarTexture = "Solid",
 		auraBarBackgroundTexture = "Solid",
 		auraBarColor = { r = 0.4, g = 0.6, b = 0.9, a = 1 },
+		auraAppBarColor = { r = 0.2, g = 0.85, b = 0.75, a = 1 },
 		auraBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 1 },
 		auraBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
 		auraBarShowName = false,
+		auraBarShowTicks = true,
+		auraSoundOnApply = false,
+		auraSoundOnStack = false,
+		auraSoundOnRemove = false,
+		auraSoundKitID = 0,
 	},
 }

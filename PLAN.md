@@ -47,13 +47,14 @@ SavedVariables: `GCDMDB`
 | Free icons (без привязки к band) | группа с `anchorTarget = screen` + per-icon offset |
 | Buff group split / per-group options | упрощённый BuffGroups |
 | Trinkets / Racials / Defensives trackers | один общий `Tracker` base, 3 пресета |
-| Aura appear sound per group | новое явное ТЗ (в Ayije слабее) |
+| Aura appear sound per group | `AddAuraSound` apply/stack/remove на AuraSlots (без порога N стаков) |
 | Profiles + import/export | AceDB profiles + LibSerialize/Deflate **или** простой string IO |
 | Edit Mode coexistence | не ломать Blizzard movers; scale lock = 1 на managed frames |
 
 ### P2 — «оставшиеся 20%» (не в v1)
 
-- ~~Resource bars + class conditions + tags~~ → **частично в v1.1:** тонкие `Skin.PowerBar` (primary + secondary) + `Skin.AuraBars` (spell ID list / Duration Objects). Полный suite (tags, class conditions, cast bar) — всё ещё P2  
+- ~~Resource bars + class conditions + tags~~ → **частично в v1.1:** тонкие `Skin.PowerBar` + `Skin.AuraSlots` (AuraContainer `AddAuraSlot` / Duration+Application bars, тики, звуки apply/stack/remove). Полный suite (tags, class conditions, cast bar) — всё ещё P2  
+- **Невозможно в бою (12.1):** условия `stacks == N`, показ только при ≥N стаках, glow способности от числа стаков бафа — аддон не читает `applications` для ветвления  
 - Player cast bar + conditional anchors  
 - Externals  
 - WagoUI  

@@ -3,8 +3,9 @@ local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 local Skin = GCDM.Skin
 local Pixel = GCDM.Pixel
 
--- Player power bar (rage/energy/…) above Essential, below BuffBar strips.
--- Secret-safe: prefer UnitPowerPercent + SetValue; never compare/index secrets.
+-- Player power bar above Essential.
+-- Per-class color profiles: class / solid / ColorCurve (absolute or %).
+-- Secret-safe: never compare power; ColorCurve:Evaluate(UnitPower|UnitPowerPercent).
 
 local host
 local primaryBar
@@ -14,6 +15,25 @@ local secondaryText
 local eventsFrame
 local applying = false
 local queued = false
+local colorCurve
+local curveFingerprint
+
+local CLASS_FILES = {
+	"DEFAULT",
+	"WARRIOR",
+	"PALADIN",
+	"HUNTER",
+	"ROGUE",
+	"PRIEST",
+	"DEATHKNIGHT",
+	"SHAMAN",
+	"MAGE",
+	"WARLOCK",
+	"MONK",
+	"DRUID",
+	"DEMONHUNTER",
+	"EVOKER",
+}
 
 local function PowerEnum(key)
 	local pt = Enum and Enum.PowerType and Enum.PowerType[key]
@@ -36,7 +56,6 @@ local CLASS_SECONDARY = {
 }
 
 local function SafePowerColor(powerType, powerToken, altR, altG, altB)
-	-- Prefer string token (RAGE/ENERGY/…) — not secret. Never use secret as table key.
 	local ok, c = pcall(function()
 		if powerToken and type(powerToken) == "string" and PowerBarColor and PowerBarColor[powerToken] then
 			return PowerBarColor[powerToken]
@@ -53,12 +72,246 @@ local function SafePowerColor(powerType, powerToken, altR, altG, altB)
 		if powerType ~= nil and type(powerType) == "number" and PowerBarColor and PowerBarColor[powerType] then
 			return PowerBarColor[powerType]
 		end
-		return PowerBarColor and PowerBarColor["RAGE"] or nil
+		return PowerBarColor and PowerBarColor["ENERGY"] or PowerBarColor and PowerBarColor["RAGE"] or nil
 	end)
 	if ok and c then
 		return c.r or 0.6, c.g or 0.1, c.b or 0.1, 1
 	end
 	return 0.78, 0.1, 0.1, 1
+end
+
+local function PlayerClassFile()
+	local _, classFile = UnitClass("player")
+	return classFile or "DEFAULT"
+end
+
+-- Parse "0:1,0,0|100:1,0,0|101:1,1,1" → { {x=,r=,g=,b=,a=}… }
+function Skin.ParsePowerBarCurvePoints(str)
+	local out = {}
+	if type(str) ~= "string" or str == "" then
+		return out
+	end
+	for part in string.gmatch(str, "[^|]+") do
+		local x, r, g, b, a = string.match(part, "^%s*([%d%.]+)%s*:%s*([%d%.]+)%s*,%s*([%d%.]+)%s*,%s*([%d%.]+)%s*,?%s*([%d%.]*)%s*$")
+		if x then
+			out[#out + 1] = {
+				x = tonumber(x) or 0,
+				r = tonumber(r) or 1,
+				g = tonumber(g) or 1,
+				b = tonumber(b) or 1,
+				a = (a ~= "" and tonumber(a)) or 1,
+			}
+		end
+	end
+	table.sort(out, function(a, b)
+		return a.x < b.x
+	end)
+	return out
+end
+
+function Skin.FormatPowerBarCurvePoints(points)
+	if type(points) ~= "table" then
+		return ""
+	end
+	local parts = {}
+	for i = 1, #points do
+		local p = points[i]
+		if p then
+			parts[#parts + 1] = string.format(
+				"%.4g:%.3g,%.3g,%.3g,%.3g",
+				p.x or 0,
+				p.r or 1,
+				p.g or 1,
+				p.b or 1,
+				p.a or 1
+			)
+		end
+	end
+	return table.concat(parts, "|")
+end
+
+local function DefaultCurvePointsAbsolute()
+	-- Example: normal color until 100, then white (energy overflow / high rage).
+	return {
+		{ x = 0, r = 1, g = 0.85, b = 0.1, a = 1 },
+		{ x = 100, r = 1, g = 0.85, b = 0.1, a = 1 },
+		{ x = 100.01, r = 1, g = 1, b = 1, a = 1 },
+		{ x = 200, r = 1, g = 1, b = 1, a = 1 },
+	}
+end
+
+local function DefaultCurvePointsPercent()
+	return {
+		{ x = 0, r = 1, g = 0.2, b = 0.2, a = 1 },
+		{ x = 0.35, r = 1, g = 0.85, b = 0.2, a = 1 },
+		{ x = 0.7, r = 0.2, g = 0.9, b = 0.3, a = 1 },
+		{ x = 1, r = 1, g = 1, b = 1, a = 1 },
+	}
+end
+
+local function CopyColor(c, fallback)
+	fallback = fallback or { r = 1, g = 1, b = 1, a = 1 }
+	c = c or fallback
+	return { r = c.r or fallback.r, g = c.g or fallback.g, b = c.b or fallback.b, a = c.a or fallback.a }
+end
+
+function Skin.GetPowerBarProfile(db, classFile)
+	db = db or GCDM:GetDB()
+	classFile = classFile or PlayerClassFile()
+	local profiles = db and db.powerBarProfiles
+	local base = {
+		colorMode = db.powerBarColorMode or "class", -- class | solid | curve
+		curveMode = db.powerBarCurveMode or "absolute", -- absolute | percent
+		curvePointsStr = db.powerBarCurvePointsStr or Skin.FormatPowerBarCurvePoints(DefaultCurvePointsAbsolute()),
+		solidColor = CopyColor(db.powerBarColor, { r = 0.55, g = 0.1, b = 0.1, a = 1 }),
+		tickMode = db.powerBarTickMode or "none", -- none | equal | values
+		tickCount = db.powerBarTickCount or 4,
+		tickAtStr = db.powerBarTickAtStr or "25,50,75,100",
+		tickMax = db.powerBarTickMax or 100,
+		tickColor = CopyColor(db.powerBarTickColor, { r = 1, g = 1, b = 1, a = 0.55 }),
+	}
+	if type(profiles) == "table" and type(profiles[classFile]) == "table" then
+		local o = profiles[classFile]
+		if o.colorMode ~= nil then
+			base.colorMode = o.colorMode
+		end
+		if o.curveMode ~= nil then
+			base.curveMode = o.curveMode
+		end
+		if o.curvePointsStr ~= nil then
+			base.curvePointsStr = o.curvePointsStr
+		end
+		if o.solidColor ~= nil then
+			base.solidColor = CopyColor(o.solidColor, base.solidColor)
+		end
+		if o.tickMode ~= nil then
+			base.tickMode = o.tickMode
+		end
+		if o.tickCount ~= nil then
+			base.tickCount = o.tickCount
+		end
+		if o.tickAtStr ~= nil then
+			base.tickAtStr = o.tickAtStr
+		end
+		if o.tickMax ~= nil then
+			base.tickMax = o.tickMax
+		end
+		if o.tickColor ~= nil then
+			base.tickColor = CopyColor(o.tickColor, base.tickColor)
+		end
+	end
+	return base
+end
+
+function Skin.SetPowerBarProfileField(db, classFile, field, value)
+	db.powerBarProfiles = db.powerBarProfiles or {}
+	if classFile == "DEFAULT" then
+		-- Mirror into global defaults for new classes.
+		if field == "colorMode" then
+			db.powerBarColorMode = value
+		elseif field == "curveMode" then
+			db.powerBarCurveMode = value
+		elseif field == "curvePointsStr" then
+			db.powerBarCurvePointsStr = value
+		elseif field == "solidColor" then
+			db.powerBarColor = value
+		elseif field == "tickMode" then
+			db.powerBarTickMode = value
+		elseif field == "tickCount" then
+			db.powerBarTickCount = value
+		elseif field == "tickAtStr" then
+			db.powerBarTickAtStr = value
+		elseif field == "tickMax" then
+			db.powerBarTickMax = value
+		elseif field == "tickColor" then
+			db.powerBarTickColor = value
+		end
+	end
+	db.powerBarProfiles[classFile] = db.powerBarProfiles[classFile] or {}
+	db.powerBarProfiles[classFile][field] = value
+end
+
+local function EnsureColorCurve(profile)
+	local points = Skin.ParsePowerBarCurvePoints(profile.curvePointsStr)
+	if #points < 2 then
+		if profile.curveMode == "percent" then
+			points = DefaultCurvePointsPercent()
+		else
+			points = DefaultCurvePointsAbsolute()
+		end
+	end
+	local fp = profile.curveMode .. "|" .. Skin.FormatPowerBarCurvePoints(points)
+	if colorCurve and curveFingerprint == fp then
+		return colorCurve
+	end
+	if not C_CurveUtil or not C_CurveUtil.CreateColorCurve then
+		return nil
+	end
+	local curve = C_CurveUtil.CreateColorCurve()
+	if curve.SetType and Enum and Enum.LuaCurveType then
+		pcall(curve.SetType, curve, Enum.LuaCurveType.Linear)
+	end
+	if curve.ClearPoints then
+		pcall(curve.ClearPoints, curve)
+	end
+	for i = 1, #points do
+		local p = points[i]
+		local col
+		if CreateColor then
+			col = CreateColor(p.r or 1, p.g or 1, p.b or 1, p.a or 1)
+		end
+		if col and curve.AddPoint then
+			pcall(curve.AddPoint, curve, p.x or 0, col)
+		end
+	end
+	colorCurve = curve
+	curveFingerprint = fp
+	return colorCurve
+end
+
+local function ApplyFillColor(bar, powerType, profile, fallbackR, fallbackG, fallbackB, fallbackA)
+	local fr, fg, fb, fa = fallbackR, fallbackG, fallbackB, fallbackA or 1
+	local mode = profile.colorMode or "class"
+
+	if mode == "solid" then
+		local c = profile.solidColor or {}
+		fr, fg, fb, fa = c.r or fr, c.g or fg, c.b or fb, c.a or 1
+	elseif mode == "curve" then
+		local curve = EnsureColorCurve(profile)
+		if curve then
+			local ok, color
+			if profile.curveMode == "percent" and UnitPowerPercent then
+				ok, color = pcall(UnitPowerPercent, "player", powerType, false, curve)
+				if (not ok or color == nil) and curve.Evaluate then
+					local okp, pct = pcall(UnitPowerPercent, "player", powerType)
+					if okp and pct ~= nil then
+						ok, color = pcall(curve.Evaluate, curve, pct)
+					end
+				end
+			else
+				local okp, cur = pcall(UnitPower, "player", powerType)
+				if okp and cur ~= nil and curve.Evaluate then
+					ok, color = pcall(curve.Evaluate, curve, cur)
+				end
+			end
+			if ok and color then
+				if color.GetRGBA then
+					fr, fg, fb, fa = color:GetRGBA()
+				elseif color.GetRGB then
+					fr, fg, fb = color:GetRGB()
+					fa = 1
+				elseif type(color) == "table" then
+					fr, fg, fb, fa = color.r or fr, color.g or fg, color.b or fb, color.a or 1
+				end
+			end
+		end
+	end
+
+	local st = bar:GetStatusBarTexture()
+	if st then
+		st:SetVertexColor(fr, fg, fb, fa)
+	end
+	pcall(bar.SetStatusBarColor, bar, fr, fg, fb, fa)
 end
 
 local function ResolveWidth(db)
@@ -100,10 +353,79 @@ local function EnsureBar(parent, name)
 	fs:SetPoint("CENTER")
 	fs:SetJustifyH("CENTER")
 	bar.GCDMText = fs
+	bar.GCDMTicks = {}
 	return bar
 end
 
-local function StyleBar(bar, db, height, fr, fg, fb, fa)
+local function ClearTicks(bar)
+	if not bar or not bar.GCDMTicks then
+		return
+	end
+	for i = 1, #bar.GCDMTicks do
+		bar.GCDMTicks[i]:Hide()
+	end
+end
+
+local function ParseTickValues(str)
+	local out = {}
+	if type(str) ~= "string" then
+		return out
+	end
+	for part in string.gmatch(str, "[^,%s]+") do
+		local n = tonumber(part)
+		if n then
+			out[#out + 1] = n
+		end
+	end
+	return out
+end
+
+local function LayoutTicks(bar, profile)
+	ClearTicks(bar)
+	if not bar or not profile or profile.tickMode == "none" then
+		return
+	end
+	local tc = profile.tickColor or { r = 1, g = 1, b = 1, a = 0.55 }
+	local ratios = {}
+	if profile.tickMode == "equal" then
+		local n = math.max(1, math.floor(profile.tickCount or 4))
+		for i = 1, n - 1 do
+			ratios[#ratios + 1] = i / n
+		end
+	elseif profile.tickMode == "values" then
+		local maxV = profile.tickMax or 100
+		if maxV <= 0 then
+			maxV = 100
+		end
+		local vals = ParseTickValues(profile.tickAtStr or "")
+		for i = 1, #vals do
+			local r = vals[i] / maxV
+			if r > 0 and r < 1 then
+				ratios[#ratios + 1] = r
+			end
+		end
+	end
+	local w = bar:GetWidth() or 0
+	if w < 2 then
+		return
+	end
+	for i = 1, #ratios do
+		local tick = bar.GCDMTicks[i]
+		if not tick then
+			tick = bar:CreateTexture(nil, "OVERLAY")
+			bar.GCDMTicks[i] = tick
+		end
+		tick:SetColorTexture(tc.r or 1, tc.g or 1, tc.b or 1, tc.a or 0.55)
+		tick:ClearAllPoints()
+		tick:SetWidth(1)
+		local x = w * ratios[i]
+		tick:SetPoint("TOPLEFT", bar, "TOPLEFT", x, 0)
+		tick:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
+		tick:Show()
+	end
+end
+
+local function StyleBarChrome(bar, db, height)
 	local tex = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(db.powerBarTexture or "Solid"))
 		or GCDM.CONST.TEX_WHITE8X8
 	local bgPath = (Skin.FetchStatusBarTexture and Skin.FetchStatusBarTexture(db.powerBarBackgroundTexture or db.powerBarTexture or "Solid"))
@@ -113,13 +435,9 @@ local function StyleBar(bar, db, height, fr, fg, fb, fa)
 	bar:SetHeight(Pixel.Snap(height))
 	bar:SetStatusBarTexture(tex)
 	local st = bar:GetStatusBarTexture()
-	if st then
-		if Pixel.DisableTextureSnap then
-			Pixel.DisableTextureSnap(st)
-		end
-		st:SetVertexColor(fr, fg, fb, fa or 1)
+	if st and Pixel.DisableTextureSnap then
+		Pixel.DisableTextureSnap(st)
 	end
-	pcall(bar.SetStatusBarColor, bar, fr, fg, fb, fa or 1)
 	bar.GCDMBg:SetTexture(bgPath)
 	bar.GCDMBg:SetVertexColor(bgc.r or 0.1, bgc.g or 0.1, bgc.b or 0.1, bgc.a or 0.95)
 	if Pixel.DisableTextureSnap then
@@ -188,7 +506,6 @@ local function FindSecondaryPowerType(primaryType)
 		return nil
 	end
 	if issecretvalue and issecretvalue(maxP) then
-		-- Known class resource: still show; SetValue accepts secrets.
 		return pt
 	end
 	if canaccessvalue and not canaccessvalue(maxP) then
@@ -200,12 +517,25 @@ local function FindSecondaryPowerType(primaryType)
 	return nil
 end
 
-local function UpdateBarValues(bar, text, powerType, showText)
+local function UpdateBarValues(bar, text, powerType, showText, profile)
 	if not bar or powerType == nil then
 		return
 	end
-	-- Prefer percent API (Midnight-friendly for StatusBar).
-	if UnitPowerPercent then
+	-- Absolute fill when curve/ticks are absolute-oriented; else percent.
+	local preferAbsolute = profile and profile.colorMode == "curve" and profile.curveMode == "absolute"
+	if preferAbsolute then
+		local okCur, cur = pcall(UnitPower, "player", powerType)
+		local okMax, maxP = pcall(UnitPowerMax, "player", powerType)
+		if okMax and maxP ~= nil then
+			pcall(bar.SetMinMaxValues, bar, 0, maxP)
+		else
+			local tickMax = (profile and profile.tickMax) or 100
+			pcall(bar.SetMinMaxValues, bar, 0, tickMax)
+		end
+		if okCur and cur ~= nil then
+			pcall(bar.SetValue, bar, cur)
+		end
+	elseif UnitPowerPercent then
 		local ok, pct = pcall(UnitPowerPercent, "player", powerType)
 		if ok and pct ~= nil then
 			pcall(bar.SetMinMaxValues, bar, 0, 1)
@@ -216,8 +546,6 @@ local function UpdateBarValues(bar, text, powerType, showText)
 		local okMax, maxP = pcall(UnitPowerMax, "player", powerType)
 		if okMax and maxP ~= nil then
 			pcall(bar.SetMinMaxValues, bar, 0, maxP)
-		else
-			pcall(bar.SetMinMaxValues, bar, 0, 1)
 		end
 		if okCur and cur ~= nil then
 			pcall(bar.SetValue, bar, cur)
@@ -241,7 +569,6 @@ local function NudgeBuffBarAbovePower(db, h, gap)
 	if not buffBar or not buffBar:IsShown() then
 		return
 	end
-	-- Respect explicit UIParent coordinates for BuffBar.
 	local cfg = db.viewerPos and db.viewerPos.buffBar
 	if cfg and cfg.enabled then
 		return
@@ -278,7 +605,6 @@ local function AnchorHost(db)
 		if strata then
 			h:SetFrameStrata(strata)
 		end
-		-- Above Essential icons; BuffBar is nudged above this host.
 		h:SetFrameLevel(math.max((essential:GetFrameLevel() or 0) + 20, 100))
 		h:SetPoint("BOTTOMLEFT", essential, "TOPLEFT", 0, gap)
 		h:SetPoint("BOTTOMRIGHT", essential, "TOPRIGHT", 0, gap)
@@ -316,21 +642,19 @@ local function ApplyPowerBars()
 		Pixel.Update()
 		EnsureHost()
 
+		local profile = Skin.GetPowerBarProfile(db, PlayerClassFile())
 		local primaryType, primaryToken, altR, altG, altB = UnitPowerType("player")
-		-- Warrior / fallback: ensure we always have a numeric power type.
 		if primaryType == nil then
-			primaryType = PowerEnum("Rage") or 1
-			primaryToken = primaryToken or "RAGE"
+			primaryType = PowerEnum("Energy") or PowerEnum("Rage") or 3
+			primaryToken = primaryToken or "ENERGY"
 		end
 
 		local pr, pg, pb, pa = SafePowerColor(primaryType, primaryToken, altR, altG, altB)
-		if db.powerBarUseCustomColor then
-			local c = db.powerBarColor or {}
-			pr, pg, pb, pa = c.r or pr, c.g or pg, c.b or pb, c.a or 1
-		end
 		local height = db.powerBarHeight or 10
-		StyleBar(primaryBar, db, height, pr, pg, pb, pa)
-		UpdateBarValues(primaryBar, primaryText, primaryType, db.powerBarShowText ~= false)
+		StyleBarChrome(primaryBar, db, height)
+		UpdateBarValues(primaryBar, primaryText, primaryType, db.powerBarShowText ~= false, profile)
+		ApplyFillColor(primaryBar, primaryType, profile, pr, pg, pb, pa)
+		LayoutTicks(primaryBar, profile)
 		primaryBar:Show()
 
 		local secondaryType = nil
@@ -339,12 +663,16 @@ local function ApplyPowerBars()
 		end
 		if secondaryType then
 			local sr, sg, sb, sa = SafePowerColor(secondaryType, nil)
-			if db.powerBarSecondaryUseCustomColor then
-				local c = db.powerBarSecondaryColor or {}
-				sr, sg, sb, sa = c.r or sr, c.g or sg, c.b or sb, c.a or 1
-			end
-			StyleBar(secondaryBar, db, height, sr, sg, sb, sa)
-			UpdateBarValues(secondaryBar, secondaryText, secondaryType, db.powerBarShowText ~= false)
+			StyleBarChrome(secondaryBar, db, height)
+			-- Secondary uses class/solid only (no curve) unless same profile curve requested.
+			local secProfile = {
+				colorMode = (profile.colorMode == "curve") and "class" or profile.colorMode,
+				solidColor = profile.solidColor,
+				tickMode = "none",
+			}
+			UpdateBarValues(secondaryBar, secondaryText, secondaryType, db.powerBarShowText ~= false, secProfile)
+			ApplyFillColor(secondaryBar, secondaryType, secProfile, sr, sg, sb, sa)
+			ClearTicks(secondaryBar)
 			secondaryBar:Show()
 		else
 			secondaryBar:Hide()
@@ -354,6 +682,7 @@ local function ApplyPowerBars()
 		end
 
 		AnchorHost(db)
+		LayoutTicks(primaryBar, profile)
 		host:Show()
 		host:SetAlpha(1)
 	end)
@@ -395,6 +724,7 @@ local function EnsureEvents()
 end
 
 GCDM:RegisterRefreshCallback("Skin.PowerBar", function()
+	curveFingerprint = nil
 	EnsureEvents()
 	ApplyPowerBars()
 end, 48, {
@@ -403,10 +733,11 @@ end, 48, {
 	GCDM.CONST.REFRESH.STYLE,
 })
 
--- Defer so Layout → Queue does not nest inside an in-flight apply.
 Skin.QueuePowerBarRelayout = function()
 	C_Timer.After(0, ApplyPowerBars)
 end
+
+Skin.PowerBarClassFiles = CLASS_FILES
 
 function GCDM:GetPowerBarHost()
 	return host

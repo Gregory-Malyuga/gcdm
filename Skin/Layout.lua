@@ -300,7 +300,9 @@ local function ApplyLayout()
 	if Skin.QueuePowerBarRelayout then
 		Skin.QueuePowerBarRelayout()
 	end
-	if Skin.QueueAuraBarsRelayout then
+	if Skin.QueueAuraSlotsRelayout then
+		Skin.QueueAuraSlotsRelayout()
+	elseif Skin.QueueAuraBarsRelayout then
 		Skin.QueueAuraBarsRelayout()
 	end
 end

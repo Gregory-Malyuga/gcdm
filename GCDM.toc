@@ -29,6 +29,7 @@ Skin\Text.lua
 Skin\Glow.lua
 Skin\BuffBar.lua
 Skin\PowerBar.lua
+Skin\AuraSlots.lua
 Skin\AuraBars.lua
 Skin\Debug.lua
 Skin\Tests.lua

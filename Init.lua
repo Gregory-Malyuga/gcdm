@@ -61,8 +61,31 @@ function GCDM:OnInitialize()
 	MaterializeColor("swipeColor")
 	MaterializeColor("buffBarColor")
 	MaterializeColor("buffBarBackgroundColor")
+	MaterializeColor("auraBarColor")
+	MaterializeColor("auraAppBarColor")
+	MaterializeColor("auraBarBackgroundColor")
 	MaterializeColor("cooldownTextColor")
 	MaterializeColor("stackTextColor")
+	MaterializeColor("powerBarColor")
+	MaterializeColor("powerBarBackgroundColor")
+	MaterializeColor("powerBarTextColor")
+	MaterializeColor("powerBarSecondaryColor")
+	if self.db.profile.auraAppSpellIDs == nil then
+		self.db.profile.auraAppSpellIDs = ""
+	end
+	if self.db.profile.auraBarShowTicks == nil then
+		self.db.profile.auraBarShowTicks = true
+	end
+	if self.db.profile.powerBarProfiles == nil then
+		self.db.profile.powerBarProfiles = {}
+	end
+	if self.db.profile.powerBarColorMode == nil then
+		self.db.profile.powerBarColorMode = "class"
+	end
+	if self.db.profile.powerBarCurvePointsStr == nil then
+		self.db.profile.powerBarCurvePointsStr =
+			"0:1,0.85,0.1,1|100:1,0.85,0.1,1|100.01:1,1,1,1|200:1,1,1,1"
+	end
 	do
 		local defaultsPos = (ns.defaults.profile.viewerPos) or {}
 		p.viewerPos = p.viewerPos or {}
@@ -140,7 +163,17 @@ function GCDM:GetDB()
 end
 
 function GCDM:OpenOptions()
-	LibStub("AceConfigDialog-3.0"):Open(ADDON_NAME)
+	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+	local open = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[ADDON_NAME]
+	if open and open.frame and open.frame:IsShown() then
+		AceConfigDialog:Close(ADDON_NAME)
+		return
+	end
+	AceConfigDialog:Open(ADDON_NAME)
+	open = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[ADDON_NAME]
+	if open and open.SetStatusText then
+		open:SetStatusText(ns.L["OPTIONS_DRAG_HINT"] or "Drag the title bar to move")
+	end
 end
 
 function GCDM:SlashCommand(input)
