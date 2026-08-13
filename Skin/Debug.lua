@@ -203,10 +203,8 @@ end
 
 local function Emit(msg)
 	msg = SafeStr(msg)
+	-- print alone — AddMessage+print duplicates every chat line.
 	print("|cff3bb273GCDM|r " .. msg)
-	if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-		DEFAULT_CHAT_FRAME:AddMessage("|cff3bb273GCDM|r " .. msg)
-	end
 end
 
 local function EnsureDumpFrame()

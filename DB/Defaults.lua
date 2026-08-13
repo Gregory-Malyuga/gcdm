@@ -38,7 +38,7 @@ ns.defaults = {
 		fadeOutOfCombat = false,
 		fadeAlpha = 0.35,
 
-		glowEnabled = true,
+		glowEnabled = false,
 		glowAutoFit = true,
 		glowScale = 1,
 		glowOffsetX = 0,
@@ -68,5 +68,39 @@ ns.defaults = {
 		buffBarShowDuration = true,
 		buffBarColor = { r = 0.4, g = 0.6, b = 0.9, a = 1 },
 		buffBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.8 },
+
+		-- Player power (energy/rage/runic/…). Separate from thin aura strips.
+		powerBarEnabled = true,
+		powerBarShowSecondary = true,
+		powerBarShowText = true,
+		powerBarWidth = 0, -- 0 = Essential row width
+		powerBarHeight = 10,
+		powerBarGap = 2,
+		powerBarBorderSize = 1,
+		powerBarFontSize = 12,
+		powerBarTexture = "Solid",
+		powerBarBackgroundTexture = "Solid",
+		powerBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.9 },
+		powerBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
+		powerBarUseCustomColor = false,
+		powerBarColor = { r = 0.55, g = 0.1, b = 0.1, a = 1 },
+		powerBarSecondaryUseCustomColor = false,
+		powerBarSecondaryColor = { r = 0.9, g = 0.85, b = 0.2, a = 1 },
+
+		-- Custom aura duration strips (spell IDs). Same look as thin BuffBar (h≈6, no labels).
+		auraBarsEnabled = false,
+		auraBarSpellIDs = "",
+		auraBarWidth = 0,
+		auraBarHeight = 6,
+		auraBarSpacing = 1,
+		auraBarGap = 1,
+		auraBarBorderSize = 0,
+		auraBarFontSize = 10,
+		auraBarTexture = "Solid",
+		auraBarBackgroundTexture = "Solid",
+		auraBarColor = { r = 0.4, g = 0.6, b = 0.9, a = 1 },
+		auraBarBackgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 1 },
+		auraBarTextColor = { r = 1, g = 1, b = 1, a = 1 },
+		auraBarShowName = false,
 	},
 }

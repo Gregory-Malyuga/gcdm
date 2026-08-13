@@ -28,6 +28,8 @@ Skin\Icon.lua
 Skin\Text.lua
 Skin\Glow.lua
 Skin\BuffBar.lua
+Skin\PowerBar.lua
+Skin\AuraBars.lua
 Skin\Debug.lua
 Skin\Tests.lua
 Options\Options.lua

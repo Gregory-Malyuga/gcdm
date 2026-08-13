@@ -29,6 +29,15 @@ function GCDM:OnInitialize()
 	end
 	self.db.profile.glowDisabledCooldowns = self.db.profile.glowDisabledCooldowns or {}
 	self.db.profile.glowDisabledSpells = self.db.profile.glowDisabledSpells or {}
+	if self.db.profile.powerBarEnabled == nil then
+		self.db.profile.powerBarEnabled = true
+	end
+	if self.db.profile.powerBarHeight == nil then
+		self.db.profile.powerBarHeight = 10
+	end
+	if self.db.profile.powerBarShowText == nil then
+		self.db.profile.powerBarShowText = true
+	end
 	if not self.db.profile.glowScale then
 		self.db.profile.glowScale = 1
 	end

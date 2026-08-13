@@ -4,10 +4,8 @@ local Skin = GCDM.Skin
 local Pixel = GCDM.Pixel
 
 local function Emit(msg)
+	-- print() already goes to DEFAULT_CHAT_FRAME — do not AddMessage again.
 	print("|cff3bb273GCDM test|r " .. tostring(msg))
-	if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-		DEFAULT_CHAT_FRAME:AddMessage("|cff3bb273GCDM test|r " .. tostring(msg))
-	end
 end
 
 local function Near(a, b, eps)
@@ -187,6 +185,33 @@ function GCDM:RunBehaviorTests()
 				end
 			end
 		end
+	end
+
+	-- Power bar host (opt-out feature; default on)
+	if db and db.powerBarEnabled ~= false then
+		local ph = GCDM.GetPowerBarHost and GCDM:GetPowerBarHost()
+		check("PowerBar host exists after Refresh", ph ~= nil)
+		if ph then
+			check("PowerBar host shown", ph:IsShown() == true)
+			local pw = ph:GetWidth() or 0
+			local wantW = Skin.EssentialLayoutWidth
+			if type(wantW) == "number" and wantW >= 40 then
+				check(
+					"PowerBar width ≈ EssentialLayoutWidth",
+					Near(pw, wantW, 3),
+					string.format("pw=%.1f want=%.1f", pw, wantW)
+				)
+			else
+				check("PowerBar width > 40", pw > 40, string.format("%.1f", pw))
+			end
+			local primary = _G.GCDM_PowerBarPrimary
+			check("PowerBar primary StatusBar exists", primary ~= nil)
+			if primary then
+				check("PowerBar primary shown", primary:IsShown() == true)
+			end
+		end
+	else
+		check("PowerBar disabled skipped", true)
 	end
 
 	-- Pixel.Snap contract

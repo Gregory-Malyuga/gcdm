@@ -53,7 +53,7 @@ SavedVariables: `GCDMDB`
 
 ### P2 — «оставшиеся 20%» (не в v1)
 
-- Resource bars + class conditions + tags  
+- ~~Resource bars + class conditions + tags~~ → **частично в v1.1:** тонкие `Skin.PowerBar` (primary + secondary) + `Skin.AuraBars` (spell ID list / Duration Objects). Полный suite (tags, class conditions, cast bar) — всё ещё P2  
 - Player cast bar + conditional anchors  
 - Externals  
 - WagoUI  

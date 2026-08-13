@@ -1078,6 +1078,363 @@ function ns.SetupOptions(addon)
 							},
 						},
 					},
+					powerBar = {
+						type = "group",
+						name = L["POWER_BAR"],
+						order = 6,
+						inline = true,
+						args = {
+							powerBarEnabled = {
+								type = "toggle",
+								name = L["POWER_BAR_ENABLED"],
+								desc = L["POWER_BAR_ENABLED_DESC"],
+								order = 1,
+								width = "full",
+								get = function()
+									return db().powerBarEnabled ~= false
+								end,
+								set = function(_, v)
+									db().powerBarEnabled = v and true or false
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarShowSecondary = {
+								type = "toggle",
+								name = L["POWER_BAR_SECONDARY"],
+								desc = L["POWER_BAR_SECONDARY_DESC"],
+								order = 2,
+								width = "full",
+								get = function()
+									return db().powerBarShowSecondary ~= false
+								end,
+								set = function(_, v)
+									db().powerBarShowSecondary = v and true or false
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarShowText = {
+								type = "toggle",
+								name = L["POWER_BAR_SHOW_TEXT"],
+								order = 3,
+								get = function()
+									return db().powerBarShowText ~= false
+								end,
+								set = function(_, v)
+									db().powerBarShowText = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarHeight = {
+								type = "range",
+								name = L["POWER_BAR_HEIGHT"],
+								order = 4,
+								min = 1,
+								max = 40,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().powerBarHeight or 10
+								end,
+								set = function(_, v)
+									db().powerBarHeight = v
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarWidth = {
+								type = "range",
+								name = L["POWER_BAR_WIDTH"],
+								order = 5,
+								min = 0,
+								max = 600,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().powerBarWidth or 0
+								end,
+								set = function(_, v)
+									db().powerBarWidth = v
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarGap = {
+								type = "range",
+								name = L["POWER_BAR_GAP"],
+								order = 6,
+								min = 0,
+								max = 40,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().powerBarGap or 2
+								end,
+								set = function(_, v)
+									db().powerBarGap = v
+									RefreshLayout(addon)
+								end,
+							},
+							powerBarFontSize = {
+								type = "range",
+								name = L["POWER_BAR_FONT_SIZE"],
+								order = 7,
+								min = 8,
+								max = 28,
+								step = 1,
+								get = function()
+									return db().powerBarFontSize or 12
+								end,
+								set = function(_, v)
+									db().powerBarFontSize = v
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTexture = {
+								type = "select",
+								name = L["POWER_BAR_TEXTURE"],
+								order = 8,
+								values = function()
+									return addon.Skin.ListMedia("statusbar")
+								end,
+								get = function()
+									return db().powerBarTexture or "Solid"
+								end,
+								set = function(_, v)
+									db().powerBarTexture = v
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarBackgroundTexture = {
+								type = "select",
+								name = L["POWER_BAR_BG_TEXTURE"],
+								order = 9,
+								values = function()
+									return addon.Skin.ListMedia("statusbar")
+								end,
+								get = function()
+									return db().powerBarBackgroundTexture or db().powerBarTexture or "Solid"
+								end,
+								set = function(_, v)
+									db().powerBarBackgroundTexture = v
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarUseCustomColor = {
+								type = "toggle",
+								name = L["POWER_BAR_CUSTOM_COLOR"],
+								order = 10,
+								get = function()
+									return db().powerBarUseCustomColor == true
+								end,
+								set = function(_, v)
+									db().powerBarUseCustomColor = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarColor = {
+								type = "color",
+								name = L["POWER_BAR_COLOR"],
+								order = 11,
+								hasAlpha = true,
+								disabled = function()
+									return db().powerBarUseCustomColor ~= true
+								end,
+								get = function()
+									return getColor("powerBarColor", { r = 0.55, g = 0.1, b = 0.1, a = 1 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("powerBarColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarBackgroundColor = {
+								type = "color",
+								name = L["POWER_BAR_BG_COLOR"],
+								order = 12,
+								hasAlpha = true,
+								get = function()
+									return getColor("powerBarBackgroundColor", { r = 0.1, g = 0.1, b = 0.1, a = 0.85 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("powerBarBackgroundColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
+							powerBarTextColor = {
+								type = "color",
+								name = L["POWER_BAR_TEXT_COLOR"],
+								order = 13,
+								hasAlpha = true,
+								get = function()
+									return getColor("powerBarTextColor", { r = 1, g = 1, b = 1, a = 1 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("powerBarTextColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
+						},
+					},
+					auraBars = {
+						type = "group",
+						name = L["AURA_BARS"],
+						order = 7,
+						inline = true,
+						args = {
+							auraBarsEnabled = {
+								type = "toggle",
+								name = L["AURA_BARS_ENABLED"],
+								desc = L["AURA_BARS_ENABLED_DESC"],
+								order = 1,
+								width = "full",
+								get = function()
+									return db().auraBarsEnabled == true
+								end,
+								set = function(_, v)
+									db().auraBarsEnabled = v and true or false
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarSpellIDs = {
+								type = "input",
+								name = L["AURA_BARS_SPELLS"],
+								desc = L["AURA_BARS_SPELLS_DESC"],
+								order = 2,
+								width = "full",
+								multiline = false,
+								get = function()
+									return db().auraBarSpellIDs or ""
+								end,
+								set = function(_, v)
+									db().auraBarSpellIDs = v or ""
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarHeight = {
+								type = "range",
+								name = L["AURA_BAR_HEIGHT"],
+								order = 3,
+								min = 1,
+								max = 40,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().auraBarHeight or 6
+								end,
+								set = function(_, v)
+									db().auraBarHeight = v
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarShowName = {
+								type = "toggle",
+								name = L["AURA_BAR_SHOW_NAME"],
+								order = 3.5,
+								get = function()
+									return db().auraBarShowName == true
+								end,
+								set = function(_, v)
+									db().auraBarShowName = v and true or false
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarWidth = {
+								type = "range",
+								name = L["AURA_BAR_WIDTH"],
+								order = 4,
+								min = 0,
+								max = 600,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().auraBarWidth or 0
+								end,
+								set = function(_, v)
+									db().auraBarWidth = v
+									RefreshLayout(addon)
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarGap = {
+								type = "range",
+								name = L["AURA_BAR_GAP"],
+								order = 5,
+								min = 0,
+								max = 40,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().auraBarGap or 2
+								end,
+								set = function(_, v)
+									db().auraBarGap = v
+									RefreshLayout(addon)
+								end,
+							},
+							auraBarSpacing = {
+								type = "range",
+								name = L["AURA_BAR_SPACING"],
+								order = 6,
+								min = 0,
+								max = 20,
+								step = FSTEP,
+								bigStep = 1,
+								get = function()
+									return db().auraBarSpacing or 1
+								end,
+								set = function(_, v)
+									db().auraBarSpacing = v
+									RefreshLayout(addon)
+								end,
+							},
+							auraBarTexture = {
+								type = "select",
+								name = L["AURA_BAR_TEXTURE"],
+								order = 7,
+								values = function()
+									return addon.Skin.ListMedia("statusbar")
+								end,
+								get = function()
+									return db().auraBarTexture or "Solid"
+								end,
+								set = function(_, v)
+									db().auraBarTexture = v
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarColor = {
+								type = "color",
+								name = L["AURA_BAR_COLOR"],
+								order = 8,
+								hasAlpha = true,
+								get = function()
+									return getColor("auraBarColor", { r = 0.5, g = 0.2, b = 0.7, a = 1 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("auraBarColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
+							auraBarBackgroundColor = {
+								type = "color",
+								name = L["AURA_BAR_BG_COLOR"],
+								order = 9,
+								hasAlpha = true,
+								get = function()
+									return getColor("auraBarBackgroundColor", { r = 0.1, g = 0.1, b = 0.1, a = 0.85 })
+								end,
+								set = function(_, r, g, b, a)
+									setColor("auraBarBackgroundColor", r, g, b, a)
+									RefreshSkin(addon)
+								end,
+							},
+						},
+					},
 				},
 			},
 			profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon.db),

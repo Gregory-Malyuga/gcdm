@@ -297,6 +297,12 @@ local function ApplyLayout()
 	if Skin.QueueBuffBarRelayout then
 		Skin.QueueBuffBarRelayout()
 	end
+	if Skin.QueuePowerBarRelayout then
+		Skin.QueuePowerBarRelayout()
+	end
+	if Skin.QueueAuraBarsRelayout then
+		Skin.QueueAuraBarsRelayout()
+	end
 end
 
 QueuePostBlizzardLayout = function()
