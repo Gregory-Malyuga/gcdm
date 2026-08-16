@@ -4,6 +4,8 @@ local Skin = GCDM.Skin
 local Pixel = GCDM.Pixel
 local Geom = Skin.LayoutGeometry
 
+local buffCenterQueued = false
+
 local function InCombat()
 	return InCombatLockdown and InCombatLockdown()
 end
@@ -17,6 +19,47 @@ function Skin.LayoutSafeViewerSetSize(viewer, w, h)
 	local ok = pcall(viewer.SetSize, viewer, w, h)
 	if not ok and Skin.LayoutMarkCombatPending then Skin.LayoutMarkCombatPending() end
 	return ok
+end
+
+function Skin.LayoutBuffIconsCentered(viewer)
+	if not viewer or not Skin.LayoutIsBuffViewer(viewer) or Skin.LayoutShouldDefer() then return end
+	local db = GCDM:GetDB()
+	if not db or not db.enabled then return end
+	local raw = Skin.CollectIconFrames(viewer)
+	local active = {}
+	for i = 1, #raw do
+		local frame = raw[i]
+		if frame then
+			if Skin.LayoutIsIconActive(frame) then
+				active[#active + 1] = frame
+			end
+		end
+	end
+	Skin.LayoutSortIconsStable(active)
+	local spacing = Geom.NormalizeSpacing(db.spacing or 0)
+	local overlap = Geom.BorderOverlap(db, spacing)
+	local w, h = Skin.LayoutResolveIconSize(active[1], db.sizeBuff)
+	local total = #active
+	if total == 0 then
+		Skin.LayoutSafeViewerSetSize(viewer, Pixel.Snap(w), Pixel.Snap(h))
+		return
+	end
+	local width = Pixel.Snap(Geom.UniformRowWidth(total, w, spacing, overlap))
+	Skin.LayoutSafeViewerSetSize(viewer, width, Pixel.Snap(h))
+	local startX = Geom.RowOriginX(width, width)
+	local stride = Geom.IconStride(w, spacing, overlap)
+	for i = 1, total do
+		Skin.LayoutPlaceIcon(active[i], viewer, startX + (i - 1) * stride, 0, w, h, 1, { keepSize = true })
+	end
+end
+
+function Skin.QueueBuffCenterLayout(viewer)
+	if not viewer or buffCenterQueued then return end
+	buffCenterQueued = true
+	C_Timer.After(0, function()
+		buffCenterQueued = false
+		Skin.LayoutBuffIconsCentered(viewer)
+	end)
 end
 
 function Skin.LayoutEssential(viewer, db)

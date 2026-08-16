@@ -181,10 +181,6 @@ function Skin.ApplyBuffBars()
 		Pixel.Update()
 		local db = GCDM:GetDB()
 		if not db or not db.enabled or db.buffBarEnabled == false then last.err = "disabled" return end
-		if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
-			last.err = "edit-mode"
-			return
-		end
 		local viewer = GCDM.ViewerRegistry:BuffBar()
 		if not viewer then last.err = "no-viewer" return end
 		local inCombat = InCombatLockdown and InCombatLockdown()

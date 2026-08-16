@@ -42,13 +42,9 @@ function PowerBarLayout.EnsureHost()
 	if host then
 		return host
 	end
-	-- Reuse the early stub from Init.lua when present. Edit Mode (and older
-	-- layouts) SetPoint BuffBarCooldownViewer relative to this name — the frame
-	-- must exist before EDIT_MODE_LAYOUTS_UPDATED / UpdateSystems.
-	host = _G.GCDM_PowerBarHost
-	if not host then
-		host = CreateFrame("Frame", "GCDM_PowerBarHost", UIParent)
-	end
+	-- Named frame must always exist: Edit Mode (and older layouts) may SetPoint
+	-- BuffBarCooldownViewer relative to "GCDM_PowerBarHost". Missing name → LUA_WARNING.
+	host = CreateFrame("Frame", "GCDM_PowerBarHost", UIParent)
 	host:SetSize(200, 20)
 	host:SetFrameStrata("MEDIUM")
 	host:SetFrameLevel((GCDM.CONST and GCDM.CONST.HOST_FRAME_LEVEL) or 100)

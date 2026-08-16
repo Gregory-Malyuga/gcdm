@@ -7,16 +7,12 @@ function ns.Tests.Behavior.LayoutBuff(h, ctx)
 		return
 	end
 
-	-- Buff icons are laid out by Blizzard GridLayout; GCDM must not park or
-	-- re-center them (that left-aligned the row and fought Edit Mode saves).
-	h.check("BUFF layout is left to Blizzard", Skin.LayoutBuffIconsCentered == nil)
-
 	local park = Skin.PARK_OFFSET or -10000
 	local icons = Skin.CollectIconFrames(buff)
-	local shownN = 0
+	local shownN, parkedN = 0, 0
 	for i = 1, #icons do
 		local f = icons[i]
-		if f and f:IsShown() then
+		if f and f:IsShown() and not f.GCDMParked then
 			shownN = shownN + 1
 			h.check(
 				"BUFF shown icon alpha>0",
@@ -24,11 +20,20 @@ function ns.Tests.Behavior.LayoutBuff(h, ctx)
 				tostring(f.layoutIndex)
 			)
 			h.check(
-				"BUFF shown not parked by GCDM",
-				f.GCDMParked ~= true and Skin.FrameAnchorX(f) ~= park,
+				"BUFF shown not at park X",
+				Skin.FrameAnchorX(f) ~= park,
 				tostring(f.layoutIndex)
 			)
+		elseif f and (f.GCDMParked or not f:IsShown()) then
+			parkedN = parkedN + 1
+			if f.GCDMParked then
+				h.check(
+					"BUFF parked icon sits at the park slot or is invisible",
+					Skin.FrameAnchorX(f) == park or (f:GetAlpha() or 1) <= 0.01,
+					tostring(f.layoutIndex)
+				)
+			end
 		end
 	end
-	h.check("BUFF pool enumerated", #icons >= 0, string.format("n=%d shown=%d", #icons, shownN))
+	h.check("BUFF pool enumerated", #icons >= 0, string.format("n=%d shown=%d parkedish=%d", #icons, shownN, parkedN))
 end
