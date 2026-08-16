@@ -145,6 +145,9 @@ function GCDM:GetAuraSoundSpellValues()
 		end
 	end
 
+	-- AceConfig / draft legacy key (migrations may still store spellSelect="custom").
+	values.custom = (ns.L and ns.L["AURA_SOUNDS_CUSTOM"]) or "Custom"
+
 	return values
 end
 

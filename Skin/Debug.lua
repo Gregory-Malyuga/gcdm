@@ -644,6 +644,16 @@ function GCDM:DumpBuffBarDebug()
 				SafeStr(pos.y)
 			))
 		end
+		local posB = db and db.viewerPos and db.viewerPos.buff
+		if posB then
+			L(SafeFormat(
+				"viewerPos.buff en=%s point=%s x=%s y=%s",
+				SafeStr(posB.enabled),
+				SafeStr(posB.point),
+				SafeStr(posB.x),
+				SafeStr(posB.y)
+			))
+		end
 		local posE = db and db.viewerPos and db.viewerPos.essential
 		if posE then
 			L(SafeFormat(

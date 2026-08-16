@@ -724,7 +724,11 @@ end
 local function NudgeBuffBarAbovePower(db, h, gap)
 	local registry = GCDM.ViewerRegistry
 	local buffBar = registry and registry:BuffBar()
-	if not buffBar or not buffBar:IsShown() then
+	if not buffBar then
+		return
+	end
+	local shownOk, isShown = pcall(buffBar.IsShown, buffBar)
+	if shownOk and not isShown then
 		return
 	end
 	local cfg = db.viewerPos and db.viewerPos.buffBar
@@ -735,9 +739,23 @@ local function NudgeBuffBarAbovePower(db, h, gap)
 		return
 	end
 	local lift = Pixel.Snap(gap or 1)
-	buffBar:ClearAllPoints()
-	buffBar:SetPoint("BOTTOMLEFT", h, "TOPLEFT", 0, lift)
-	buffBar:SetPoint("BOTTOMRIGHT", h, "TOPRIGHT", 0, lift)
+	local inCombat = InCombatLockdown and InCombatLockdown()
+	-- Never ClearAllPoints in combat: if SetPoint is blocked the viewer vanishes.
+	if inCombat then
+		pcall(function()
+			buffBar:SetPoint("BOTTOMLEFT", h, "TOPLEFT", 0, lift)
+			buffBar:SetPoint("BOTTOMRIGHT", h, "TOPRIGHT", 0, lift)
+		end)
+	else
+		pcall(function()
+			buffBar:ClearAllPoints()
+			buffBar:SetPoint("BOTTOMLEFT", h, "TOPLEFT", 0, lift)
+			buffBar:SetPoint("BOTTOMRIGHT", h, "TOPRIGHT", 0, lift)
+		end)
+	end
+	-- Remember nudge so Position snap can restore after Blizzard RefreshLayout.
+	buffBar.GCDMViewerAnchor = { "BOTTOMLEFT", h, "TOPLEFT", 0, lift }
+	buffBar.GCDMViewerAnchor2 = { "BOTTOMRIGHT", h, "TOPRIGHT", 0, lift }
 end
 
 local function AnchorHost(db)

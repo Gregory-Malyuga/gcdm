@@ -30,6 +30,37 @@ function GCDM:IsEditModeActive()
 	return false
 end
 
+--- True while Blizzard Cooldown Viewer Settings is open (reorder / drag icons).
+function GCDM:IsCooldownViewerSettingsOpen()
+	local panel = _G.CooldownViewerSettings
+	if panel and panel.IsShown and panel:IsShown() then
+		return true
+	end
+	return false
+end
+
+--- Edit Mode or CDM settings: do not fight Blizzard icon placement.
+function GCDM:ShouldDeferCDMLayout()
+	return self:IsEditModeActive() or self:IsCooldownViewerSettingsOpen()
+end
+
+local function HookCooldownViewerSettings()
+	local panel = _G.CooldownViewerSettings
+	if not panel or panel.GCDMLayoutHooked then
+		return
+	end
+	panel.GCDMLayoutHooked = true
+	if panel.HookScript then
+		panel:HookScript("OnHide", function()
+			C_Timer.After(0, function()
+				if GCDM and GCDM.Refresh then
+					GCDM:Refresh(GCDM.CONST.REFRESH.LAYOUT)
+				end
+			end)
+		end)
+	end
+end
+
 local function SetupEditMode()
 	if EventRegistry and EventRegistry.RegisterCallback then
 		EventRegistry:RegisterCallback("EditMode.Enter", function()
@@ -52,6 +83,12 @@ local function SetupEditMode()
 				SetEditMode(true)
 			end
 		end)
+	end
+
+	HookCooldownViewerSettings()
+	if EventUtil and EventUtil.ContinueOnAddOnLoaded then
+		EventUtil.ContinueOnAddOnLoaded("Blizzard_CooldownViewer", HookCooldownViewerSettings)
+		EventUtil.ContinueOnAddOnLoaded("Blizzard_CooldownViewerSettings", HookCooldownViewerSettings)
 	end
 end
 

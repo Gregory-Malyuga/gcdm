@@ -48,12 +48,30 @@ local function InstallViewerSnap(viewer)
 		if not a or self.GCDMApplyingViewerAnchor then
 			return
 		end
-		if GCDM.IsEditModeActive and GCDM:IsEditModeActive() then
+		if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
 			return
 		end
+		-- In combat still restore BuffBar nudge (no ClearAllPoints — avoids orphan frames).
+		local inCombat = InCombatLockdown and InCombatLockdown()
 		self.GCDMApplyingViewerAnchor = true
-		self:ClearAllPoints()
-		self:SetPoint(a[1], a[2], a[3], a[4], a[5])
+		if inCombat then
+			pcall(function()
+				self:SetPoint(a[1], a[2], a[3], a[4], a[5])
+				local a2 = self.GCDMViewerAnchor2
+				if a2 then
+					self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
+				end
+			end)
+		else
+			pcall(function()
+				self:ClearAllPoints()
+				self:SetPoint(a[1], a[2], a[3], a[4], a[5])
+				local a2 = self.GCDMViewerAnchor2
+				if a2 then
+					self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
+				end
+			end)
+		end
 		self.GCDMApplyingViewerAnchor = false
 	end)
 end
@@ -70,7 +88,10 @@ local function ApplyViewerPosition(viewer, cfg)
 		ClearViewerAnchor(viewer)
 		return
 	end
-	if GCDM.IsEditModeActive and GCDM:IsEditModeActive() then
+	if InCombatLockdown and InCombatLockdown() then
+		return
+	end
+	if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
 		return
 	end
 
@@ -81,8 +102,10 @@ local function ApplyViewerPosition(viewer, cfg)
 
 	InstallViewerSnap(viewer)
 	viewer.GCDMApplyingViewerAnchor = true
-	viewer:ClearAllPoints()
-	viewer:SetPoint(point, UIParent, point, x, y)
+	pcall(function()
+		viewer:ClearAllPoints()
+		viewer:SetPoint(point, UIParent, point, x, y)
+	end)
 	viewer.GCDMApplyingViewerAnchor = false
 	viewer.GCDMViewerAnchor = { point, UIParent, point, x, y }
 
@@ -96,7 +119,10 @@ local function ApplyPositions()
 	if not db or not db.enabled then
 		return
 	end
-	if GCDM.IsEditModeActive and GCDM:IsEditModeActive() then
+	if InCombatLockdown and InCombatLockdown() then
+		return
+	end
+	if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
 		return
 	end
 

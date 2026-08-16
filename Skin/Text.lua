@@ -567,6 +567,34 @@ local function HookMixins()
 			end
 		end)
 	end
+
+	-- Reorder / reassign in CDM settings: spell on the frame changed → refresh keybind.
+	local function OnCooldownReassigned(self)
+		local db = GCDM:GetDB()
+		if not db or not db.enabled or not self then
+			return
+		end
+		self.GCDMAnchor = nil
+		Skin.ApplyText(self)
+		if Skin.RebuildPressOverlayMap then
+			-- Debounced via next layout; still rebuild map so press tint tracks new slots.
+			C_Timer.After(0, function()
+				if Skin.RebuildPressOverlayMap then
+					Skin.RebuildPressOverlayMap()
+				end
+			end)
+		end
+	end
+
+	if CooldownViewerItemMixin and CooldownViewerItemMixin.OnCooldownIDSet then
+		hooksecurefunc(CooldownViewerItemMixin, "OnCooldownIDSet", OnCooldownReassigned)
+	elseif CooldownViewerItemMixin and CooldownViewerItemMixin.SetCooldownID then
+		hooksecurefunc(CooldownViewerItemMixin, "SetCooldownID", OnCooldownReassigned)
+	end
+
+	if CooldownViewerCooldownItemMixin and CooldownViewerCooldownItemMixin.OnCooldownIDSet then
+		hooksecurefunc(CooldownViewerCooldownItemMixin, "OnCooldownIDSet", OnCooldownReassigned)
+	end
 end
 
 local function ApplyTextAll()

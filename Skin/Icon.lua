@@ -446,6 +446,9 @@ local function HookViewerAcquire(viewer)
 			local db = GCDM:GetDB()
 			if itemFrame and db and db.enabled then
 				ApplyOneIcon(itemFrame)
+				if Skin.ApplyText then
+					Skin.ApplyText(itemFrame)
+				end
 			end
 		end)
 	end)

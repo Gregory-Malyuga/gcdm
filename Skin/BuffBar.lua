@@ -505,6 +505,7 @@ local function ApplyBuffBars()
 			return
 		end
 
+		local inCombat = InCombatLockdown and InCombatLockdown()
 		local bars = Skin.CollectBarFrames(viewer)
 		last.bars = #bars
 		local height = ResolveBarHeight(db)
@@ -533,7 +534,8 @@ local function ApplyBuffBars()
 					local okA, a = pcall(frame.IsActive, frame)
 					active = okA and a == true
 				end
-				if frame:IsShown() or active then
+				local shownOk, isShown = pcall(frame.IsShown, frame)
+				if (shownOk and isShown) or active then
 					shown[#shown + 1] = frame
 				end
 			end
@@ -550,18 +552,33 @@ local function ApplyBuffBars()
 		end
 		-- Keep viewer visible; never write baseBarWidth (taints CDM aura paths).
 		if viewer.SetAlpha then
-			viewer:SetAlpha(1)
+			pcall(viewer.SetAlpha, viewer, 1)
 		end
-		viewer:SetSize(width, Pixel.Snap(containerH))
 
-		for i = 1, count do
-			local frame = shown[i]
-			local y = -((i - 1) * (height + spacing))
-			frame:ClearAllPoints()
-			frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", 0, y)
-			frame:SetAlpha(1)
-			-- Re-assert size after SetPoint (Blizzard SetBarWidth races).
-			StyleOneBar(frame, db, width, height)
+		-- Geometry: avoid ClearAllPoints in combat (orphan frames if SetPoint is blocked).
+		if not inCombat then
+			pcall(viewer.SetSize, viewer, width, Pixel.Snap(containerH))
+			for i = 1, count do
+				local frame = shown[i]
+				local y = -((i - 1) * (height + spacing))
+				pcall(function()
+					frame:ClearAllPoints()
+					frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", 0, y)
+				end)
+				pcall(frame.SetAlpha, frame, 1)
+				StyleOneBar(frame, db, width, height)
+			end
+		else
+			pcall(viewer.SetSize, viewer, width, Pixel.Snap(containerH))
+			for i = 1, count do
+				local frame = shown[i]
+				local y = -((i - 1) * (height + spacing))
+				-- Re-assert without clearing first.
+				pcall(frame.SetPoint, frame, "TOPLEFT", viewer, "TOPLEFT", 0, y)
+				pcall(frame.SetAlpha, frame, 1)
+				StyleOneBar(frame, db, width, height)
+			end
+			last.err = "combat-skin"
 		end
 	end)
 
