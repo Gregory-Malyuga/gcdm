@@ -36,7 +36,7 @@ local function ApplyBorder()
 		return
 	end
 
-	local size = db.borderSize or 1
+	local size = db.borderSize or (GCDM.CONST and GCDM.CONST.DEFAULT_BORDER_SIZE) or 1
 	local c = db.borderColor or { r = 0, g = 0, b = 0, a = 1 }
 	local offsetX = db.borderOffsetX or 0
 	local offsetY = db.borderOffsetY or 0
@@ -65,7 +65,11 @@ local function ApplyBorder()
 		border:ClearAllPoints()
 		border:SetPoint("TOPLEFT", frame, "TOPLEFT", offsetX, offsetY)
 		border:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -offsetX, -offsetY)
-		border:SetBackdropBorderColor(c.r or 0, c.g or 0, c.b or 0, c.a or 1)
+		if Skin.ColorUtil and Skin.ColorUtil.Unpack then
+			border:SetBackdropBorderColor(Skin.ColorUtil.Unpack(c, 0, 0, 0, 1))
+		else
+			border:SetBackdropBorderColor(c.r or 0, c.g or 0, c.b or 0, c.a or 1)
+		end
 		border:Show()
 	end)
 end

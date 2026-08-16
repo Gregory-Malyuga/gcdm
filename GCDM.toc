@@ -3,7 +3,7 @@
 ## Notes: Skin Blizzard Cooldown Manager — layout, fonts, keybinds, power bar, glow, aura sounds. /gcdm
 ## Notes-ruRU: Скин Blizzard Cooldown Manager — раскладка, шрифты, бинды, ресурс, glow, звуки аур. /gcdm
 ## Author: GCDM
-## Version: 0.1.0
+## Version: 0.1.2
 ## X-License: Proprietary — All Rights Reserved (see LICENSE)
 ## IconTexture: Interface\AddOns\GCDM\Media\GCDM_Logo
 ## SavedVariables: GCDMDB
@@ -17,28 +17,75 @@ Init.lua
 Core\Constants.lua
 Core\Refresh.lua
 Core\Pixel.lua
+Core\LayoutApply.lua
+Core\EditModeProbe.lua
+Core\EditModeHooks.lua
 Core\EditMode.lua
 Core\ViewerRegistry.lua
+Core\ProfileShareCodec.lua
 Core\ProfileShare.lua
+Core\MigrationsText.lua
+Core\MigrationsLayout.lua
 Core\Migrations.lua
 DB\Defaults.lua
-Locales\enUS.lua
-Locales\ruRU.lua
+Locales\enUS_core.lua
+Locales\enUS_options.lua
+Locales\ruRU_core.lua
+Locales\ruRU_options.lua
 Skin\Util.lua
+Skin\LayoutGeometry.lua
+Skin\ColorUtil.lua
+Skin\AnchorUtil.lua
+Skin\BarWidth.lua
+Core\MediaFonts.lua
 Core\Media.lua
 Core\SmoothBar.lua
+Skin\LayoutHelpers.lua
+Skin\LayoutEssential.lua
 Skin\Layout.lua
 Skin\Position.lua
 Skin\Size.lua
 Skin\Border.lua
+Skin\IconChrome.lua
+Skin\IconSwipe.lua
 Skin\Icon.lua
+Skin\KeybindAbbrev.lua
+Skin\KeybindSlots.lua
+Skin\KeybindResolve.lua
 Skin\Keybinds.lua
+Skin\TextStyle.lua
+Skin\TextIcon.lua
+Skin\TextBuffBar.lua
 Skin\Text.lua
+Skin\PressOverlayChrome.lua
+Skin\PressOverlayMap.lua
+Skin\PressOverlayHooks.lua
 Skin\PressOverlay.lua
+Skin\GlowStyle.lua
 Skin\Glow.lua
+Skin\BuffBarChrome.lua
+Skin\BuffBarLayout.lua
 Skin\BuffBar.lua
+Skin\PowerBarCurve.lua
+Skin\PowerBarFill.lua
+Skin\PowerBarChrome.lua
+Skin\PowerBarBorder.lua
+Skin\PowerBarTicks.lua
+Skin\PowerBarLayout.lua
+Skin\PowerBarValues.lua
 Skin\PowerBar.lua
+Skin\AuraSoundValues.lua
+Skin\AuraSoundRules.lua
 Skin\AuraSounds.lua
+Skin\DebugUtil.lua
+Skin\DebugDumpFrame.lua
+Skin\DebugDumpBuffBarHead.lua
+Skin\DebugDumpBuffBarViewers.lua
+Skin\DebugDumpBuffBarBars.lua
+Skin\DebugDumpBuffBar.lua
+Skin\DebugDumpEditModeIcons.lua
+Skin\DebugDumpEditMode.lua
+Skin\DebugDumpSkin.lua
 Skin\Debug.lua
 Skin\Tests\Harness.lua
 Skin\Tests\Logic\Refresh.lua
@@ -57,6 +104,26 @@ Skin\Tests\Behavior\PowerBar.lua
 Skin\Tests\Behavior\Chrome.lua
 Skin\Tests\Behavior\Pixel.lua
 Skin\Tests.lua
+Options\Helpers.lua
+Options\TextArgsIcon.lua
+Options\TextArgsKeybind.lua
+Options\TextArgsBuffBar.lua
+Options\Blizzard.lua
+Options\SkinLayoutArgs.lua
+Options\SkinPositionsArgs.lua
+Options\SkinSizesArgs.lua
+Options\SkinBorderArgs.lua
+Options\SkinGlowArgs.lua
+Options\BuffBarArgs.lua
+Options\BuffBarArgsMore.lua
+Options\PowerBarArgs.lua
+Options\PowerBarArgsMore.lua
+Options\SkinGroup.lua
+Options\GeneralArgs.lua
+Options\AssembleMerge.lua
+Options\Assemble.lua
 Options\ProfileShare.lua
+Options\AuraSoundsLabels.lua
+Options\AuraSoundsRules.lua
 Options\AuraSounds.lua
 Options\Options.lua

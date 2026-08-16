@@ -24,17 +24,27 @@ function ns.Tests.Behavior.BuffBar(h, ctx)
 			local spacing = Pixel.Snap(db.spacing or 0)
 			formulaW = (maxRow * iw) + ((maxRow - 1) * spacing)
 		end
-		if (db.buffBarWidth or 0) > 0 then
+		local minW = (addon.CONST and addon.CONST.MIN_BAR_WIDTH) or 200
+		local follow = db.buffBarFollowEssential ~= false
+		if not follow then
+			local want = db.buffBarWidth or minW
+			if want < minW then
+				want = minW
+			end
 			h.check(
-				"BuffBar lastApply.width ≈ buffBarWidth",
-				h.Near(last.width, db.buffBarWidth, 2),
-				string.format("w=%.1f setting=%s", last.width or -1, tostring(db.buffBarWidth))
+				"BuffBar lastApply.width ≈ independent width",
+				h.Near(last.width, want, 2),
+				string.format("w=%.1f setting=%s", last.width or -1, tostring(want))
 			)
 		else
+			local want = formulaW
+			if type(want) == "number" and want < minW then
+				want = minW
+			end
 			h.check(
-				"BuffBar lastApply.width ≈ EssentialLayoutWidth",
-				h.Near(last.width, formulaW, 2),
-				string.format("w=%.1f laid=%s", last.width or -1, tostring(formulaW))
+				"BuffBar lastApply.width ≈ EssentialLayoutWidth (min 200)",
+				h.Near(last.width, want, 2),
+				string.format("w=%.1f laid=%s", last.width or -1, tostring(want))
 			)
 		end
 		h.check(
