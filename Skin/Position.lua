@@ -1,19 +1,9 @@
 local ADDON_NAME, ns = ...
 local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
+local Skin = GCDM.Skin
 local Pixel = GCDM.Pixel
 local VIEWERS = GCDM.CONST.VIEWERS
-
-local ANCHOR_POINTS = {
-	CENTER = true,
-	TOP = true,
-	BOTTOM = true,
-	LEFT = true,
-	RIGHT = true,
-	TOPLEFT = true,
-	TOPRIGHT = true,
-	BOTTOMLEFT = true,
-	BOTTOMRIGHT = true,
-}
+local AnchorUtil = Skin.AnchorUtil
 
 local VIEWER_KEYS = {
 	{ key = "essential", name = VIEWERS.ESSENTIAL },
@@ -23,10 +13,14 @@ local VIEWER_KEYS = {
 }
 
 local function NormalizePoint(point)
-	if type(point) == "string" and ANCHOR_POINTS[point] then
-		return point
+	if AnchorUtil and AnchorUtil.NormalizePoint then
+		return AnchorUtil.NormalizePoint(point, "CENTER")
 	end
 	return "CENTER"
+end
+
+local function DefaultIndependentY()
+	return (GCDM.CONST and GCDM.CONST.DEFAULT_VIEWER_POS_Y) or 80
 end
 
 local function GetPosConfig(db, key)
@@ -38,41 +32,49 @@ local function GetPosConfig(db, key)
 	return cfg
 end
 
+local function RestoreViewerAnchor(self)
+	local a = self.GCDMViewerAnchor
+	if not a then
+		return
+	end
+	local inCombat = InCombatLockdown and InCombatLockdown()
+	self.GCDMApplyingViewerAnchor = true
+	if inCombat then
+		pcall(function()
+			self:SetPoint(a[1], a[2], a[3], a[4], a[5])
+			local a2 = self.GCDMViewerAnchor2
+			if a2 then
+				self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
+			end
+		end)
+	else
+		pcall(function()
+			self:ClearAllPoints()
+			self:SetPoint(a[1], a[2], a[3], a[4], a[5])
+			local a2 = self.GCDMViewerAnchor2
+			if a2 then
+				self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
+			end
+		end)
+	end
+	self.GCDMApplyingViewerAnchor = false
+end
+
 local function InstallViewerSnap(viewer)
 	if viewer.GCDMPosSnapHooked then
 		return
 	end
 	viewer.GCDMPosSnapHooked = true
 	hooksecurefunc(viewer, "SetPoint", function(self)
-		local a = self.GCDMViewerAnchor
-		if not a or self.GCDMApplyingViewerAnchor then
-			return
-		end
 		if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
+			self.GCDMViewerAnchor = nil
+			self.GCDMViewerAnchor2 = nil
 			return
 		end
-		-- In combat still restore BuffBar nudge (no ClearAllPoints — avoids orphan frames).
-		local inCombat = InCombatLockdown and InCombatLockdown()
-		self.GCDMApplyingViewerAnchor = true
-		if inCombat then
-			pcall(function()
-				self:SetPoint(a[1], a[2], a[3], a[4], a[5])
-				local a2 = self.GCDMViewerAnchor2
-				if a2 then
-					self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
-				end
-			end)
-		else
-			pcall(function()
-				self:ClearAllPoints()
-				self:SetPoint(a[1], a[2], a[3], a[4], a[5])
-				local a2 = self.GCDMViewerAnchor2
-				if a2 then
-					self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
-				end
-			end)
+		if not self.GCDMViewerAnchor or self.GCDMApplyingViewerAnchor then
+			return
 		end
-		self.GCDMApplyingViewerAnchor = false
+		RestoreViewerAnchor(self)
 	end)
 end
 
@@ -81,6 +83,7 @@ local function ClearViewerAnchor(viewer)
 		return
 	end
 	viewer.GCDMViewerAnchor = nil
+	viewer.GCDMViewerAnchor2 = nil
 end
 
 local function ApplyViewerPosition(viewer, cfg)
@@ -108,10 +111,20 @@ local function ApplyViewerPosition(viewer, cfg)
 	end)
 	viewer.GCDMApplyingViewerAnchor = false
 	viewer.GCDMViewerAnchor = { point, UIParent, point, x, y }
+end
 
-	if viewer.SetParent and viewer:GetParent() ~= UIParent then
-		-- Keep Blizzard parent; only move via points.
+local function ResolveBuffBarIndependentConfig(db, cfg)
+	local fallbackY = DefaultIndependentY()
+	local use = cfg or { enabled = true, point = "CENTER", x = 0, y = fallbackY }
+	if not use.enabled then
+		use = {
+			enabled = true,
+			point = use.point or "CENTER",
+			x = use.x or 0,
+			y = use.y or fallbackY,
+		}
 	end
+	return use
 end
 
 local function ApplyPositions()
@@ -132,7 +145,10 @@ local function ApplyPositions()
 		local viewer = registry:Get(entry.name)
 		local cfg = GetPosConfig(db, entry.key)
 		if viewer then
-			if cfg and cfg.enabled then
+			local forceIndependent = entry.key == "buffBar" and db.buffBarFollowEssential == false
+			if forceIndependent then
+				ApplyViewerPosition(viewer, ResolveBuffBarIndependentConfig(db, cfg))
+			elseif cfg and cfg.enabled then
 				ApplyViewerPosition(viewer, cfg)
 			else
 				ClearViewerAnchor(viewer)
@@ -144,5 +160,4 @@ end
 GCDM:RegisterRefreshCallback("Skin.Position", ApplyPositions, 30, {
 	GCDM.CONST.REFRESH.ALL,
 	GCDM.CONST.REFRESH.LAYOUT,
-	GCDM.CONST.REFRESH.STYLE,
 })

@@ -8,32 +8,22 @@ GCDM.Skin = Skin
 -- Protocol: GCDMParked=true, GCDMAnchor[4]=PARK_OFFSET, alpha 0; never snap SetPoint while parked.
 Skin.PARK_OFFSET = -10000
 
+--- When spacing is 0, adjacent icon borders would stack; overlap by borderSize (see LayoutGeometry).
+function Skin.BorderOverlap(db, gap)
+	local Geom = Skin.LayoutGeometry
+	if Geom and Geom.BorderOverlap then
+		return Geom.BorderOverlap(db, gap)
+	end
+	return 0
+end
+
 --- Full configured Essential row width (maxIconsPerRow), used by BuffBar/PowerBar/tests.
 function Skin.EssentialWidthFormula(db)
-	if not db then
-		return 0
+	local Geom = Skin.LayoutGeometry
+	if Geom and Geom.EssentialConfiguredWidth then
+		return Geom.EssentialConfiguredWidth(db)
 	end
-	local Pixel = GCDM.Pixel
-	local maxRow = db.maxIconsPerRow or 7
-	if maxRow < 1 then
-		maxRow = 1
-	end
-	local row1 = db.sizeEssential or { w = 46, h = 40 }
-	local itemW = Pixel.Snap(row1.w or 46)
-	local gap = db.spacing or 0
-	if gap < 0 then
-		gap = 0
-	end
-	if Pixel.IsSnapEnabled and Pixel.IsSnapEnabled() then
-		gap = Pixel.Snap(gap)
-		local px = Pixel.GetSize and Pixel.GetSize() or 1
-		if (db.spacing or 0) > 0 and gap < px then
-			gap = px
-		end
-	else
-		gap = Pixel.Snap(gap)
-	end
-	return Pixel.Snap((maxRow * itemW) + ((maxRow - 1) * gap))
+	return 0
 end
 
 local function IsBuffBarItem(frame)

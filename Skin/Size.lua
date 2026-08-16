@@ -29,7 +29,7 @@ local function ApplySize()
 	if InCombatLockdown and InCombatLockdown() then
 		return
 	end
-	if GCDM.IsEditModeActive and GCDM:IsEditModeActive() then
+	if GCDM.ShouldDeferIconLayout and GCDM:ShouldDeferIconLayout() then
 		return
 	end
 

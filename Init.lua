@@ -9,7 +9,8 @@ ns.GCDM = GCDM
 _G.GCDM = GCDM
 
 GCDM.ADDON_NAME = ADDON_NAME
-GCDM.VERSION = "0.1.0"
+GCDM.VERSION = "0.1.2"
+GCDM.BUILD = "20260816-c19"
 GCDM.LICENSE = "Proprietary — All Rights Reserved"
 
 function GCDM:OnInitialize()
@@ -48,6 +49,7 @@ function GCDM:OnEnable()
 		end)
 	end
 	self:Refresh()
+	print("|cff3bb273GCDM|r loaded " .. tostring(self.VERSION) .. " build=" .. tostring(self.BUILD))
 end
 
 function GCDM:OnViewerDataChanged()
@@ -62,12 +64,14 @@ function GCDM:OnLoadingScreenDisabled()
 		self.ViewerRegistry:RefreshCache()
 	end
 	-- CDM frames may appear after loading screen; retry like Edit Mode Exit Refresh.
-	C_Timer.After(0, function()
+	local immediate = (self.CONST and self.CONST.LAYOUT_REAPPLY_IMMEDIATE) or 0
+	local retry = (self.CONST and self.CONST.LAYOUT_RETRY_AFTER_LOADING) or 0.25
+	C_Timer.After(immediate, function()
 		if GCDM and GCDM.Refresh then
 			GCDM:Refresh()
 		end
 	end)
-	C_Timer.After(0.25, function()
+	C_Timer.After(retry, function()
 		if GCDM and GCDM.Refresh then
 			GCDM:Refresh(GCDM.CONST.REFRESH.LAYOUT)
 		end
@@ -114,6 +118,28 @@ function GCDM:SlashCommand(input)
 	end
 	if cmd == "debug" then
 		self:ToggleDebugSkin()
+		return
+	end
+	if cmd == "editdump" or cmd == "edit" or cmd == "icons" or cmd == "icondump" then
+		if type(self.DumpEditModeDebug) ~= "function" then
+			print("|cff3bb273GCDM|r icons: DumpEditModeDebug missing. /reload")
+			return
+		end
+		print("|cff3bb273GCDM|r icon dump ver=9 build=" .. tostring(self.BUILD) .. " addon=" .. tostring(self.VERSION))
+		local ok, err = pcall(function()
+			self:DumpEditModeDebug(false)
+		end)
+		if not ok then
+			print("|cff3bb273GCDM|r icons ERROR: " .. tostring(err))
+		end
+		return
+	end
+	if cmd == "editdebug" then
+		local db = self:GetDB()
+		if db then
+			db.debugEditMode = not (db.debugEditMode == true)
+			self:Print("debugEditMode = " .. tostring(db.debugEditMode) .. " (auto dump on Edit Mode enter/exit)")
+		end
 		return
 	end
 	if cmd == "dump" then

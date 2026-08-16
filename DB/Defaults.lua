@@ -21,6 +21,8 @@ ns.defaults = {
 		borderTexture = "Solid",
 		swipeColor = { r = 0, g = 0, b = 0, a = 0.6 },
 		debugSkin = false,
+		-- Log Edit Mode release + allow /gcdm editdump (also on when debugSkin).
+		debugEditMode = false,
 
 		-- Per-viewer text (Essential / Utility / Buff icons / Buff bars). No global Text tab.
 		textByViewer = {
@@ -113,13 +115,16 @@ ns.defaults = {
 			utility = { enabled = false, point = "CENTER", x = 0, y = -180 },
 			buff = { enabled = false, point = "CENTER", x = 0, y = 120 },
 			buffBar = { enabled = false, point = "CENTER", x = 0, y = 80 },
+			powerBar = { enabled = false, point = "CENTER", x = 0, y = -100 },
 		},
 
 		buffBarEnabled = true,
 		buffBarStyle = "solid", -- blizzard | solid (SharedMedia textures)
 		buffBarTexture = "Solid",
 		buffBarBackgroundTexture = "Solid",
-		buffBarWidth = 0, -- 0 = match Essential row 1 width
+		-- true = width/position follow Essential (+ PowerBar nudge). false = own width + viewerPos.
+		buffBarFollowEssential = true,
+		buffBarWidth = 200, -- used when not following Essential (min 200)
 		buffBarHeight = 16,
 		buffBarSpacing = 0,
 		buffBarIconGap = 0,
@@ -135,7 +140,9 @@ ns.defaults = {
 		powerBarEnabled = true,
 		powerBarShowSecondary = true,
 		powerBarShowText = true,
-		powerBarWidth = 0, -- 0 = Essential row width
+		-- true = width/position follow Essential. false = own width + viewerPos.powerBar.
+		powerBarFollowEssential = true,
+		powerBarWidth = 200, -- used when not following Essential (min 200)
 		powerBarHeight = 10,
 		powerBarGap = 2,
 		powerBarBorderSize = 1,
