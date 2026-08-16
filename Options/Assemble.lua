@@ -11,6 +11,10 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 	local takePos = ns.OptionsTakePos
 
 	local generalArgs = options.args.general.args
+	local previewArgs = ns.BuildLayoutPreviewArgs(0.5)
+	for key, value in pairs(previewArgs) do
+		generalArgs[key] = value
+	end
 	generalArgs.iconStyleHeader = {
 		type = "header",
 		name = L["ICON_STYLE"],
@@ -73,8 +77,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 				ess2H = sizeArgs.ess2H,
 			},
 			takePos(posArgs, "essential", 50),
-			ns.MakeIconTextArgs(ctx, V.ESSENTIAL, 100, true),
-			ns.BuildPanelContentArgs("essential", 900)
+			ns.MakeIconTextArgs(ctx, V.ESSENTIAL, 100, true)
 		),
 	}
 
@@ -97,8 +100,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 				utilH = sizeArgs.utilH,
 			},
 			takePos(posArgs, "utility", 50),
-			ns.MakeIconTextArgs(ctx, V.UTILITY, 100, true),
-			ns.BuildPanelContentArgs("utility", 900)
+			ns.MakeIconTextArgs(ctx, V.UTILITY, 100, true)
 		),
 	}
 
@@ -121,8 +123,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 				buffH = sizeArgs.buffH,
 			},
 			takePos(posArgs, "buff", 50),
-			ns.MakeIconTextArgs(ctx, V.BUFF, 100),
-			ns.BuildPanelContentArgs("buff", 900)
+			ns.MakeIconTextArgs(ctx, V.BUFF, 100)
 		),
 	}
 
@@ -133,8 +134,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 		args = mergeArgs(
 			takePos(posArgs, "buffBar", 1),
 			skinArgs.buffBar.args,
-			ns.MakeBuffBarTextArgs(ctx, 100),
-			ns.BuildPanelContentArgs("buffBar", 900)
+			ns.MakeBuffBarTextArgs(ctx, 100)
 		),
 	}
 	for k, v in pairs(options.args.buffBar.args) do

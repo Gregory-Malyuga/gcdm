@@ -111,11 +111,11 @@ ns.defaults = {
 
 		-- Screen positions (UIParent). When enabled, overrides Edit Mode placement outside Edit Mode.
 		viewerPos = {
-			essential = { enabled = false, point = "CENTER", x = 0, y = -120 },
-			utility = { enabled = false, point = "CENTER", x = 0, y = -180 },
-			buff = { enabled = false, point = "CENTER", x = 0, y = 120 },
-			buffBar = { enabled = false, point = "CENTER", x = 0, y = 80 },
-			powerBar = { enabled = false, point = "CENTER", x = 0, y = -100 },
+			essential = { enabled = true, point = "CENTER", x = 0, y = -120 },
+			utility = { enabled = true, point = "CENTER", x = 0, y = -180 },
+			buff = { enabled = true, point = "CENTER", x = 0, y = 120 },
+			buffBar = { enabled = true, point = "CENTER", x = 0, y = 80 },
+			powerBar = { enabled = true, point = "CENTER", x = 0, y = -100 },
 		},
 
 		buffBarEnabled = true,

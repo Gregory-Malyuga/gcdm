@@ -73,6 +73,10 @@ local function GuardBarSize(frame, width, height)
 	frame.GCDMSizeGuardHooked = true
 	local function onSizeTouch(self)
 		if self.GCDMApplyingSize then return end
+		if InCombatLockdown and InCombatLockdown() then
+			if Skin.LayoutMarkCombatPending then Skin.LayoutMarkCombatPending() end
+			return
+		end
 		if GCDM.ShouldDeferIconLayout and GCDM:ShouldDeferIconLayout() then return end
 		local w, h = self.GCDMWantW, self.GCDMWantH
 		if not w or not h then return end
@@ -86,6 +90,10 @@ local function GuardBarSize(frame, width, height)
 		self.GCDMSizeGuardPending = true
 		C_Timer.After(0, function()
 			self.GCDMSizeGuardPending = false
+			if InCombatLockdown and InCombatLockdown() then
+				if Skin.LayoutMarkCombatPending then Skin.LayoutMarkCombatPending() end
+				return
+			end
 			if GCDM.ShouldDeferIconLayout and GCDM:ShouldDeferIconLayout() then return end
 			local db = GCDM:GetDB()
 			if db and db.enabled and self.Bar and self.GCDMWantW and self.GCDMWantH then
@@ -99,6 +107,10 @@ local function GuardBarSize(frame, width, height)
 end
 
 StyleOneBar = function(frame, db, width, height)
+	if InCombatLockdown and InCombatLockdown() then
+		if Skin.LayoutMarkCombatPending then Skin.LayoutMarkCombatPending() end
+		return
+	end
 	local bar = frame.Bar
 	if not bar or not width or width < 8 or not height or height < 2 then return end
 	local style = Skin.BuffBarResolveStyle(db)
@@ -106,7 +118,9 @@ StyleOneBar = function(frame, db, width, height)
 	Skin.HideBuffBarPipAndExtras(frame, style)
 	Pixel.Update()
 	GuardBarSize(frame, width, height)
-	frame:SetSize(width, height)
+	frame.GCDMApplyingSize = true
+	pcall(frame.SetSize, frame, width, height)
+	frame.GCDMApplyingSize = false
 	local showIcon, iconFrame = Skin.ApplyBuffBarIconVisibility(frame, db, height)
 	local gap = Pixel.Snap(db.buffBarIconGap or 0)
 	bar:ClearAllPoints()
@@ -140,6 +154,11 @@ function Skin.ApplyBuffBars()
 		local viewer = GCDM.ViewerRegistry:BuffBar()
 		if not viewer then last.err = "no-viewer" return end
 		local inCombat = InCombatLockdown and InCombatLockdown()
+		if inCombat then
+			last.err = "combat-deferred"
+			if Skin.LayoutMarkCombatPending then Skin.LayoutMarkCombatPending() end
+			return
+		end
 		local bars = Skin.CollectBarFrames(viewer)
 		last.bars = #bars
 		local height = Skin.BuffBarResolveHeight(db)
@@ -179,12 +198,7 @@ function Skin.ApplyBuffBars()
 		for i = 1, count do
 			local frame = shown[i]
 			local y = -((i - 1) * (height + spacing))
-			if not inCombat then
-				pcall(function() frame:ClearAllPoints() frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", 0, y) end)
-			else
-				pcall(frame.SetPoint, frame, "TOPLEFT", viewer, "TOPLEFT", 0, y)
-				last.err = "combat-skin"
-			end
+			pcall(function() frame:ClearAllPoints() frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", 0, y) end)
 			pcall(frame.SetAlpha, frame, 1)
 			StyleOneBar(frame, db, width, height)
 		end

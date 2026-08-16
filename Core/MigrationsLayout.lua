@@ -85,6 +85,12 @@ function GCDM.MigrateViewerPos(p)
 			y = src.y or 0,
 		}
 	end
+	if not p._gcdmCoordinatesOwnPlacement then
+		for i = 1, #keys do
+			p.viewerPos[keys[i]].enabled = true
+		end
+		p._gcdmCoordinatesOwnPlacement = true
+	end
 	if p.buffBarFollowEssential == nil then
 		p.buffBarFollowEssential = true
 	end

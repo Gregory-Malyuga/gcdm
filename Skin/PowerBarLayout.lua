@@ -71,17 +71,13 @@ local function NudgeBuffBarAbovePower(db, h, gap)
 	if shownOk and not isShown then
 		return
 	end
-	local cfg = db.viewerPos and db.viewerPos.buffBar
-	if cfg and cfg.enabled then
-		return
-	end
 	local lift = Pixel.Snap(gap or 1)
 	local inCombat = InCombatLockdown and InCombatLockdown()
 	if inCombat then
-		pcall(function()
-			buffBar:SetPoint("BOTTOMLEFT", h, "TOPLEFT", 0, lift)
-			buffBar:SetPoint("BOTTOMRIGHT", h, "TOPRIGHT", 0, lift)
-		end)
+		if Skin.LayoutMarkCombatPending then
+			Skin.LayoutMarkCombatPending()
+		end
+		return
 	else
 		pcall(function()
 			buffBar:ClearAllPoints()

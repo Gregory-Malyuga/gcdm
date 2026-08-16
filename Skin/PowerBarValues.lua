@@ -26,6 +26,16 @@ local function PowerEnum(key)
 	return nil
 end
 
+local function IsRestrictedValue(value)
+	if issecretvalue and issecretvalue(value) then
+		return true
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return true
+	end
+	return false
+end
+
 function PowerBarLayout.FindSecondaryPowerType(primaryType)
 	local _, classFile = UnitClass("player")
 	local key = classFile and CLASS_SECONDARY[classFile]
@@ -34,15 +44,13 @@ function PowerBarLayout.FindSecondaryPowerType(primaryType)
 		return nil
 	end
 	local ok, maxP = pcall(UnitPowerMax, "player", pt)
-	if not ok or maxP == nil then
+	if not ok then
 		return nil
 	end
-	if issecretvalue and issecretvalue(maxP) then
+	if IsRestrictedValue(maxP) then
 		return pt
 	end
-	if canaccessvalue and not canaccessvalue(maxP) then
-		return pt
-	end
+	if maxP == nil then return nil end
 	if type(maxP) == "number" and maxP > 0 then
 		return pt
 	end
@@ -56,7 +64,10 @@ function PowerBarLayout.UpdateBarValues(bar, text, powerType, showText)
 	local filled = false
 	if UnitPowerPercent then
 		local ok, pct = pcall(UnitPowerPercent, "player", powerType)
-		if ok and pct ~= nil then
+		if ok and IsRestrictedValue(pct) then
+			pcall(bar.SetMinMaxValues, bar, 0, 1)
+			filled = pcall(bar.SetValue, bar, pct)
+		elseif ok and pct ~= nil then
 			pcall(bar.SetMinMaxValues, bar, 0, 1)
 			if Skin.SmoothBarSetValue then
 				Skin.SmoothBarSetValue(bar, pct, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled())
@@ -70,7 +81,11 @@ function PowerBarLayout.UpdateBarValues(bar, text, powerType, showText)
 	if not filled then
 		local okCur, cur = pcall(UnitPower, "player", powerType)
 		local okMax, maxP = pcall(UnitPowerMax, "player", powerType)
-		if okCur and okMax and cur ~= nil and maxP ~= nil then
+		local restricted = okCur and okMax and (IsRestrictedValue(cur) or IsRestrictedValue(maxP))
+		if restricted then
+			pcall(bar.SetMinMaxValues, bar, 0, maxP)
+			filled = pcall(bar.SetValue, bar, cur)
+		elseif okCur and okMax and cur ~= nil and maxP ~= nil then
 			pcall(bar.SetMinMaxValues, bar, 0, maxP)
 			if Skin.SmoothBarSetValue then
 				Skin.SmoothBarSetValue(bar, cur, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled())
@@ -90,7 +105,7 @@ function PowerBarLayout.UpdateBarValues(bar, text, powerType, showText)
 	end
 	if text and showText then
 		local ok, cur = pcall(UnitPower, "player", powerType)
-		if ok and cur ~= nil then
+		if ok and not IsRestrictedValue(cur) and cur ~= nil then
 			Chrome.SafeSetText(text, cur)
 		else
 			Chrome.SafeSetText(text, "")

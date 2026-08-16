@@ -34,9 +34,10 @@ function ns.BuildSkinPositionsArgs(ctx)
 		db().viewerPos = db().viewerPos or {}
 		local t = db().viewerPos[key]
 		if type(t) ~= "table" then
-			t = { enabled = false, point = "CENTER", x = 0, y = 0 }
+			t = { enabled = true, point = "CENTER", x = 0, y = 0 }
 			db().viewerPos[key] = t
 		end
+		t.enabled = true
 		return t
 	end
 	for i = 1, #blocks do
@@ -45,38 +46,6 @@ function ns.BuildSkinPositionsArgs(ctx)
 			type = "header",
 			name = b.label,
 			order = b.order,
-		}
-		args[b.key .. "Enabled"] = {
-			type = "toggle",
-			name = L["POS_ENABLED"],
-			order = b.order + 1,
-			width = "full",
-			hidden = function()
-				return b.key == "powerBar"
-			end,
-			disabled = function()
-				if b.key == "buffBar" then
-					return db().buffBarFollowEssential == false
-				end
-				return false
-			end,
-			get = function()
-				if b.key == "buffBar" and db().buffBarFollowEssential == false then
-					return true
-				end
-				return pos(b.key).enabled and true or false
-			end,
-			set = function(_, v)
-				pos(b.key).enabled = v and true or false
-				local t = pos(b.key)
-				db().viewerPos[b.key] = {
-					enabled = t.enabled,
-					point = t.point or "CENTER",
-					x = t.x or 0,
-					y = t.y or 0,
-				}
-				ctx.RefreshLayout()
-			end,
 		}
 		args[b.key .. "Point"] = {
 			type = "select",
@@ -90,7 +59,7 @@ function ns.BuildSkinPositionsArgs(ctx)
 				if b.key == "buffBar" and db().buffBarFollowEssential == false then
 					return false
 				end
-				return not pos(b.key).enabled
+				return false
 			end,
 			get = function()
 				return pos(b.key).point or "CENTER"
@@ -98,9 +67,7 @@ function ns.BuildSkinPositionsArgs(ctx)
 			set = function(_, v)
 				local t = pos(b.key)
 				db().viewerPos[b.key] = {
-					enabled = (b.key == "buffBar" and db().buffBarFollowEssential == false)
-						or (b.key == "powerBar" and db().powerBarFollowEssential == false)
-						or (t.enabled and true or false),
+					enabled = true,
 					point = v,
 					x = t.x or 0,
 					y = t.y or 0,
@@ -125,7 +92,7 @@ function ns.BuildSkinPositionsArgs(ctx)
 				if b.key == "buffBar" and db().buffBarFollowEssential == false then
 					return false
 				end
-				return not pos(b.key).enabled
+				return false
 			end,
 			get = function()
 				return pos(b.key).x or 0
@@ -133,9 +100,7 @@ function ns.BuildSkinPositionsArgs(ctx)
 			set = function(_, v)
 				local t = pos(b.key)
 				db().viewerPos[b.key] = {
-					enabled = (b.key == "buffBar" and db().buffBarFollowEssential == false)
-						or (b.key == "powerBar" and db().powerBarFollowEssential == false)
-						or (t.enabled and true or false),
+					enabled = true,
 					point = t.point or "CENTER",
 					x = v,
 					y = t.y or 0,
@@ -160,7 +125,7 @@ function ns.BuildSkinPositionsArgs(ctx)
 				if b.key == "buffBar" and db().buffBarFollowEssential == false then
 					return false
 				end
-				return not pos(b.key).enabled
+				return false
 			end,
 			get = function()
 				return pos(b.key).y or 0
@@ -168,9 +133,7 @@ function ns.BuildSkinPositionsArgs(ctx)
 			set = function(_, v)
 				local t = pos(b.key)
 				db().viewerPos[b.key] = {
-					enabled = (b.key == "buffBar" and db().buffBarFollowEssential == false)
-						or (b.key == "powerBar" and db().powerBarFollowEssential == false)
-						or (t.enabled and true or false),
+					enabled = true,
 					point = t.point or "CENTER",
 					x = t.x or 0,
 					y = v,

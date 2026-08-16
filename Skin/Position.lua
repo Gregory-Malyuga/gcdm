@@ -40,13 +40,11 @@ local function RestoreViewerAnchor(self)
 	local inCombat = InCombatLockdown and InCombatLockdown()
 	self.GCDMApplyingViewerAnchor = true
 	if inCombat then
-		pcall(function()
-			self:SetPoint(a[1], a[2], a[3], a[4], a[5])
-			local a2 = self.GCDMViewerAnchor2
-			if a2 then
-				self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
-			end
-		end)
+		self.GCDMApplyingViewerAnchor = false
+		if Skin.LayoutMarkCombatPending then
+			Skin.LayoutMarkCombatPending()
+		end
+		return
 	else
 		pcall(function()
 			self:ClearAllPoints()
@@ -87,7 +85,7 @@ local function ClearViewerAnchor(viewer)
 end
 
 local function ApplyViewerPosition(viewer, cfg)
-	if not viewer or not cfg or cfg.enabled == false then
+	if not viewer or not cfg then
 		ClearViewerAnchor(viewer)
 		return
 	end
@@ -148,7 +146,9 @@ local function ApplyPositions()
 			local forceIndependent = entry.key == "buffBar" and db.buffBarFollowEssential == false
 			if forceIndependent then
 				ApplyViewerPosition(viewer, ResolveBuffBarIndependentConfig(db, cfg))
-			elseif cfg and cfg.enabled then
+			elseif entry.key == "buffBar" then
+				ClearViewerAnchor(viewer)
+			elseif cfg then
 				ApplyViewerPosition(viewer, cfg)
 			else
 				ClearViewerAnchor(viewer)

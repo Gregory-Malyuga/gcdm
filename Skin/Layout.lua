@@ -31,10 +31,6 @@ end
 
 local function CombatBuffPass()
 	Skin.LayoutMarkCombatPending()
-	local registry = GCDM.ViewerRegistry
-	local buff = registry and registry.Buff and registry:Buff()
-	if buff then Skin.LayoutBuffIconsCentered(buff) end
-	if Skin.QueueBuffBarRelayout then Skin.QueueBuffBarRelayout() end
 end
 
 local function ApplyLayout()

@@ -80,7 +80,10 @@ local function InstallAnchorSnapBack(frame)
 	frame.GCDMSnapHooked = true
 	hooksecurefunc(frame, "SetPoint", function(self)
 		if self.GCDMParked or self.GCDMApplyingAnchor then return end
-		if InCombat() and not Skin.LayoutIsBuffViewer(Skin.LayoutViewerOf(self)) then return end
+		if InCombat() then
+			if Skin.LayoutMarkCombatPending then Skin.LayoutMarkCombatPending() end
+			return
+		end
 		if Skin.LayoutShouldDefer() then self.GCDMAnchor = nil return end
 		local a = self.GCDMAnchor
 		if not a then return end
