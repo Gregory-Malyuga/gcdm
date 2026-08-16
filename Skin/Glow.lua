@@ -44,36 +44,10 @@ function Glow:ListVisibleCooldownOptions()
 	return values
 end
 
-function Glow:HookAlertManager()
-	if self.alertManagerHooked then
-		return
-	end
-	local mgr = _G.ActionButtonSpellAlertManager
-	if not mgr then
-		return
-	end
-
-	hooksecurefunc(mgr, "ShowAlert", function(_, frame)
-		if not Glow.IsCooldownViewerIcon(frame) then
-			return
-		end
-		if Glow.IsDisabledForFrame(frame) then
-			Glow.SuppressAlert(frame)
-			return
-		end
-		Glow.StyleBlizzardAlert(frame)
-		C_Timer.After(0, function()
-			if frame.SpellActivationAlert then
-				Glow.SuppressProcStartBurst(frame.SpellActivationAlert)
-			end
-		end)
-	end)
-
-	self.alertManagerHooked = true
-end
-
+-- Proc alerts are picked up by the glow pass. Hooking
+-- ActionButtonSpellAlertManager:ShowAlert would run inside Blizzard's cooldown
+-- refresh, which taints the secret comparisons that follow it.
 local function ApplyGlow()
-	Glow:HookAlertManager()
 	local db = GCDM:GetDB()
 	GCDM.Skin.ForEachManagedIcon(function(frame, _, viewerName)
 		if viewerName ~= GCDM.CONST.VIEWERS.ESSENTIAL and viewerName ~= GCDM.CONST.VIEWERS.UTILITY then

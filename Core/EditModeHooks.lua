@@ -2,75 +2,53 @@
 local ADDON_NAME, ns = ...
 local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 
+-- Edit Mode and the Cooldown Manager settings panel are watched through
+-- EventRegistry, never through HookScript. Blizzard runs EnterEditMode and
+-- ExitEditMode from those frames' own OnShow/OnHide, so a script hook there
+-- taints the whole teardown: HideSystemSelections then walks every registered
+-- system frame tainted, and unit frames, the damage meter and encounter
+-- warnings start erroring on their secret values. EventRegistry callbacks are
+-- dispatched through securecallfunction, so they stay out of that stack.
+
 local function Const()
 	return GCDM.CONST or {}
 end
 
-local function HookCooldownViewerSettings()
-	local panel = _G.CooldownViewerSettings
-	if not panel or panel.GCDMLayoutHooked then
-		return
+local function ScheduleLayout(delays)
+	if GCDM.LayoutApply then
+		GCDM.LayoutApply.Schedule(delays)
 	end
-	panel.GCDMLayoutHooked = true
-	if not panel.HookScript then
-		return
-	end
-	local C = Const()
-	local delays = {
-		C.LAYOUT_REAPPLY_IMMEDIATE or 0,
-		C.LAYOUT_REAPPLY_DELAY or 0.15,
-	}
-	panel:HookScript("OnShow", function()
-		if GCDM.LayoutApply then
-			GCDM.LayoutApply.Schedule(delays)
-		end
-	end)
-	panel:HookScript("OnHide", function()
-		if GCDM.LayoutApply then
-			GCDM.LayoutApply.Schedule({ C.LAYOUT_REAPPLY_IMMEDIATE or 0 })
-		end
-	end)
 end
 
-local function HookEditModeManager()
-	local em = _G.EditModeManagerFrame
-	if not em or em.GCDMEditModeHooked then
-		return
-	end
-	em.GCDMEditModeHooked = true
-	if em.HookScript then
-		em:HookScript("OnShow", function()
-			if GCDM._SetEditMode then
-				GCDM._SetEditMode(true)
-			end
-		end)
-		em:HookScript("OnHide", function()
-			if GCDM._SetEditMode then
-				GCDM._SetEditMode(false)
-			end
-		end)
-	end
-	if GCDM._IsEditModeUIOpen and GCDM._IsEditModeUIOpen() then
-		GCDM._SetEditMode(true)
-	end
+local function OnSettingsShown()
+	local C = Const()
+	ScheduleLayout({
+		C.LAYOUT_REAPPLY_IMMEDIATE or 0,
+		C.LAYOUT_REAPPLY_DELAY or 0.15,
+	})
+end
+
+local function OnSettingsHidden()
+	ScheduleLayout({ Const().LAYOUT_REAPPLY_IMMEDIATE or 0 })
 end
 
 function GCDM._SetupEditModeHooks()
-	if EventRegistry and EventRegistry.RegisterCallback then
-		EventRegistry:RegisterCallback("EditMode.Enter", function()
-			GCDM._SetEditMode(true)
-		end, GCDM)
-		EventRegistry:RegisterCallback("EditMode.Exit", function()
-			GCDM._SetEditMode(false)
-		end, GCDM)
+	if not EventRegistry or not EventRegistry.RegisterCallback then
+		return
 	end
-	HookEditModeManager()
-	if EventUtil and EventUtil.ContinueOnAddOnLoaded then
-		EventUtil.ContinueOnAddOnLoaded("Blizzard_EditMode", HookEditModeManager)
-	end
-	HookCooldownViewerSettings()
-	if EventUtil and EventUtil.ContinueOnAddOnLoaded then
-		EventUtil.ContinueOnAddOnLoaded("Blizzard_CooldownViewer", HookCooldownViewerSettings)
-		EventUtil.ContinueOnAddOnLoaded("Blizzard_CooldownViewerSettings", HookCooldownViewerSettings)
+
+	EventRegistry:RegisterCallback("EditMode.Enter", function()
+		GCDM._SetEditMode(true)
+	end, GCDM)
+	EventRegistry:RegisterCallback("EditMode.Exit", function()
+		GCDM._SetEditMode(false)
+	end, GCDM)
+
+	EventRegistry:RegisterCallback("CooldownViewerSettings.OnShow", OnSettingsShown, GCDM)
+	EventRegistry:RegisterCallback("CooldownViewerSettings.OnHide", OnSettingsHidden, GCDM)
+
+	-- Edit Mode may already be open when we load.
+	if GCDM._IsEditModeUIOpen and GCDM._IsEditModeUIOpen() then
+		GCDM._SetEditMode(true)
 	end
 end

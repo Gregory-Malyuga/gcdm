@@ -36,46 +36,10 @@ function Skin.StyleCooldownSwipe(frame, db)
 	if cd.SetDrawSwipe then
 		cd:SetDrawSwipe(true)
 	end
-	if not cd.GCDMBlingSuppressed then
-		cd.GCDMBlingSuppressed = true
-		local function KillBling(self)
-			if self.GCDMKillingBling then
-				return
-			end
-			self.GCDMKillingBling = true
-			if self.SetDrawBling then
-				self:SetDrawBling(false)
-			end
-			if self.SetDrawEdge then
-				self:SetDrawEdge(false)
-			end
-			self.GCDMKillingBling = false
-		end
-		if cd.SetDrawBling then
-			hooksecurefunc(cd, "SetDrawBling", function(self, draw)
-				if draw then
-					KillBling(self)
-				end
-			end)
-		end
-		if cd.SetDrawEdge then
-			hooksecurefunc(cd, "SetDrawEdge", function(self, draw)
-				if draw then
-					KillBling(self)
-				end
-			end)
-		end
-		if cd.SetCooldown then
-			hooksecurefunc(cd, "SetCooldown", KillBling)
-		end
-		if cd.SetCooldownFromDurationObject then
-			hooksecurefunc(cd, "SetCooldownFromDurationObject", KillBling)
-		end
-		if cd.Clear then
-			hooksecurefunc(cd, "Clear", KillBling)
-		end
-	end
-
+	-- Blizzard turns bling and edge back on when it sets a cooldown. Hooking
+	-- SetCooldown/SetDrawBling to undo that ran inside its refresh and tainted
+	-- everything after it, so the art is silenced by alpha below instead: that
+	-- survives the flag being flipped back on.
 	local regions = { cd:GetRegions() }
 	for i = 1, #regions do
 		local region = regions[i]
@@ -94,23 +58,14 @@ function Skin.StyleCooldownSwipe(frame, db)
 		if chargeCd.SetDrawEdge then
 			chargeCd:SetDrawEdge(false)
 		end
-		if not chargeCd.GCDMBlingSuppressed then
-			chargeCd.GCDMBlingSuppressed = true
-			local function KillChargeBling(self)
-				if self.SetDrawBling then
-					self:SetDrawBling(false)
+		local chargeRegions = { chargeCd:GetRegions() }
+		for i = 1, #chargeRegions do
+			local region = chargeRegions[i]
+			if region and region.IsObjectType and region:IsObjectType("Texture") then
+				local name = region.GetName and region:GetName()
+				if type(name) == "string" and (name:find("Bling", 1, true) or name:find("Edge", 1, true)) then
+					region:SetAlpha(0)
 				end
-				if self.SetDrawEdge then
-					self:SetDrawEdge(false)
-				end
-			end
-			hooksecurefunc(chargeCd, "SetDrawBling", function(self, draw)
-				if draw then
-					KillChargeBling(self)
-				end
-			end)
-			if chargeCd.SetCooldown then
-				hooksecurefunc(chargeCd, "SetCooldown", KillChargeBling)
 			end
 		end
 	end

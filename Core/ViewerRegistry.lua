@@ -58,21 +58,9 @@ function Registry:GetAll()
 	return list
 end
 
-function Registry:HookOnce(frame, flagName, method, fn)
-	if not frame or type(method) ~= "string" or type(fn) ~= "function" then
-		return false
-	end
-	flagName = flagName or ("GCDMHook_" .. method)
-	if frame[flagName] then
-		return false
-	end
-	if type(frame[method]) ~= "function" then
-		return false
-	end
-	frame[flagName] = true
-	hooksecurefunc(frame, method, fn)
-	return true
-end
+-- No hook helper lives here on purpose. Hooking a Cooldown Manager frame or
+-- mixin makes Blizzard's own refresh continue on our tainted execution, and it
+-- then errors on its secret cooldown and aura values. Watch CDMWatch instead.
 
 function Registry:RefreshCache()
 	wipe(cache)

@@ -178,23 +178,7 @@ function Glow.StyleBlizzardAlert(frame)
 		end
 	end
 
-	if not alert.GCDMStyleHooked then
-		alert.GCDMStyleHooked = true
-		alert:HookScript("OnShow", function(self)
-			local parent = self:GetParent()
-			if not parent or not Glow.IsCooldownViewerIcon(parent) then
-				return
-			end
-			if Glow.IsDisabledForFrame(parent) then
-				Glow.SuppressAlert(parent)
-				return
-			end
-			Glow.StyleBlizzardAlert(parent)
-			C_Timer.After(0, function()
-				if parent.SpellActivationAlert then
-					Glow.SuppressProcStartBurst(parent.SpellActivationAlert)
-				end
-			end)
-		end)
-	end
+	-- No OnShow hook here: Blizzard shows the alert from inside its cooldown
+	-- refresh, so the hook would taint it. Restyling happens on the next glow
+	-- pass instead.
 end
