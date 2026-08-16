@@ -9,7 +9,12 @@ function ns.MakeBuffBarTextArgs(ctx, orderBase)
 	local getStyleColor = ctx.getStyleColor
 	local setStyleColor = ctx.setStyleColor
 	local RefreshSkin = ctx.RefreshSkin
-	local OUTLINE_VALUES = ctx.OUTLINE_VALUES
+	local OUTLINE_VALUES = ctx.OUTLINE_VALUES or {
+		NONE = L["TEXT_OUTLINE_NONE"] or "None",
+		OUTLINE = L["TEXT_OUTLINE_OUTLINE"] or "Outline",
+		THICKOUTLINE = L["TEXT_OUTLINE_THICK"] or "Thick",
+		MONOCHROME = L["TEXT_OUTLINE_MONOCHROME"] or "Monochrome",
+	}
 	local key = "BuffBarCooldownViewer"
 
 	return {
