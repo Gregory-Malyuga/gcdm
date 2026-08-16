@@ -42,21 +42,6 @@ end
 
 GCDM._IsEditModeUIOpen = IsEditModeUIOpen
 
-local function ClearViewerPositionSnaps()
-	local registry = GCDM.ViewerRegistry
-	if not registry then
-		return
-	end
-	local names = Const().ALL_VIEWER_NAMES or Const().MANAGED_VIEWER_NAMES or {}
-	for i = 1, #names do
-		local viewer = registry:Get(names[i])
-		if viewer then
-			viewer.GCDMViewerAnchor = nil
-			viewer.GCDMViewerAnchor2 = nil
-		end
-	end
-end
-
 local function ApplyLayoutIfEditing()
 	if not GCDM.isEditModeActive then
 		return
@@ -73,7 +58,6 @@ local function ScheduleEditModeEnterPasses()
 		if not GCDM.isEditModeActive then
 			return
 		end
-		ClearViewerPositionSnaps()
 		ApplyLayoutIfEditing()
 	end)
 	C_Timer.After(delayed, function()
@@ -117,7 +101,6 @@ local function SetEditMode(active)
 	GCDM.editModeSuppressPowerBar = false
 	EditLog(string.format("SetEditMode %s → %s", tostring(was), tostring(GCDM.isEditModeActive)))
 	if active then
-		ClearViewerPositionSnaps()
 		ScheduleEditModeEnterPasses()
 	elseif was then
 		ScheduleEditModeExitPasses()
