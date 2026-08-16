@@ -1,17 +1,4 @@
-# Local agent index (never commit)
 PROJECT_INDEX.md
 .project_index.md
-
-# OS / editor
-Thumbs.db
-Desktop.ini
-.DS_Store
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Local scratch
-_restore_tmp/
 *.zip
-*.log
+WTF/
