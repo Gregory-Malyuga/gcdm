@@ -121,6 +121,7 @@ Options\PowerBarArgsMore.lua
 Options\SkinGroup.lua
 Options\GeneralArgs.lua
 Options\AssembleMerge.lua
+Options\PanelContent.lua
 Options\Assemble.lua
 Options\ProfileShare.lua
 Options\AuraSoundsLabels.lua

@@ -74,7 +74,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 			},
 			takePos(posArgs, "essential", 50),
 			ns.MakeIconTextArgs(ctx, V.ESSENTIAL, 100, true),
-			ns.BuildBlizzardContentEditorArgs("spells", 900)
+			ns.BuildPanelContentArgs("essential", 900)
 		),
 	}
 
@@ -98,7 +98,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 			},
 			takePos(posArgs, "utility", 50),
 			ns.MakeIconTextArgs(ctx, V.UTILITY, 100, true),
-			ns.BuildBlizzardContentEditorArgs("spells", 900)
+			ns.BuildPanelContentArgs("utility", 900)
 		),
 	}
 
@@ -122,7 +122,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 			},
 			takePos(posArgs, "buff", 50),
 			ns.MakeIconTextArgs(ctx, V.BUFF, 100),
-			ns.BuildBlizzardContentEditorArgs("auras", 900)
+			ns.BuildPanelContentArgs("buff", 900)
 		),
 	}
 
@@ -134,7 +134,7 @@ function ns.AssembleBlockTabs(addon, options, ctx)
 			takePos(posArgs, "buffBar", 1),
 			skinArgs.buffBar.args,
 			ns.MakeBuffBarTextArgs(ctx, 100),
-			ns.BuildBlizzardContentEditorArgs("auras", 900)
+			ns.BuildPanelContentArgs("buffBar", 900)
 		),
 	}
 	for k, v in pairs(options.args.buffBar.args) do
