@@ -34,7 +34,19 @@ function ns.OpenBlizzardEditMode()
 	show()
 end
 
-function ns.OpenBlizzardCooldownViewerSettings()
+local VALID_CDM_DISPLAY_MODES = {
+	spells = true,
+	auras = true,
+}
+
+local function ApplyCooldownViewerDisplayMode(panel, displayMode)
+	if not panel or not VALID_CDM_DISPLAY_MODES[displayMode] or type(panel.SetDisplayMode) ~= "function" then
+		return
+	end
+	pcall(panel.SetDisplayMode, panel, displayMode)
+end
+
+function ns.OpenBlizzardCooldownViewerSettings(displayMode)
 	if InCombatLockdown and InCombatLockdown() then
 		print("|cff3bb273GCDM|r: " .. L["MSG_CDM_COMBAT"])
 		return
@@ -49,6 +61,7 @@ function ns.OpenBlizzardCooldownViewerSettings()
 		elseif panel.Show then
 			panel:Show()
 		end
+		ApplyCooldownViewerDisplayMode(panel, displayMode)
 		return panel.IsShown and panel:IsShown()
 	end
 	if show() then
@@ -63,6 +76,33 @@ function ns.OpenBlizzardCooldownViewerSettings()
 		ns.OpenBlizzardEditMode()
 		print("|cff3bb273GCDM|r: " .. L["MSG_CDM_FALLBACK"])
 	end
+end
+
+function ns.BuildBlizzardContentEditorArgs(displayMode, orderBase)
+	orderBase = orderBase or 900
+	return {
+		contentEditorHeader = {
+			type = "header",
+			name = L["PANEL_CONTENT"],
+			order = orderBase,
+		},
+		contentEditorHint = {
+			type = "description",
+			name = L["PANEL_CONTENT_DESC"],
+			order = orderBase + 1,
+			fontSize = "medium",
+		},
+		contentEditorOpen = {
+			type = "execute",
+			name = L["PANEL_CONTENT_OPEN"],
+			desc = L["PANEL_CONTENT_DESC"],
+			order = orderBase + 2,
+			width = "full",
+			func = function()
+				ns.OpenBlizzardCooldownViewerSettings(displayMode)
+			end,
+		},
+	}
 end
 
 function ns.BuildBlizzardArgs()
@@ -87,7 +127,9 @@ function ns.BuildBlizzardArgs()
 			desc = L["BLIZZARD_CDM_SETTINGS_DESC"],
 			order = 3,
 			width = "full",
-			func = ns.OpenBlizzardCooldownViewerSettings,
+			func = function()
+				ns.OpenBlizzardCooldownViewerSettings()
+			end,
 		},
 	}
 end
