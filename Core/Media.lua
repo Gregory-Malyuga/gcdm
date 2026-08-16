@@ -115,6 +115,8 @@ function Skin.BuildBorderBackdrop(db)
 	}
 end
 
+local mediaRefreshQueued = false
+
 local function OnMediaRegistered(_, mediatype, key)
 	if Skin._registeringExpressway then
 		return
@@ -122,9 +124,16 @@ local function OnMediaRegistered(_, mediatype, key)
 	if mediatype == "font" and key ~= EXPRESSWAY then
 		Skin.RegisterExpresswayAlias()
 	end
-	if GCDM.Refresh then
-		GCDM:Refresh(GCDM.CONST.REFRESH.STYLE)
+	if not GCDM.Refresh or mediaRefreshQueued then
+		return
 	end
+	-- Media is registered from whoever is loading at the time (any addon), so
+	-- restyling here would run our CDM code on that stack and taint it.
+	mediaRefreshQueued = true
+	C_Timer.After(0, function()
+		mediaRefreshQueued = false
+		GCDM:Refresh(GCDM.CONST.REFRESH.STYLE)
+	end)
 end
 
 function Skin.InitSharedMedia()

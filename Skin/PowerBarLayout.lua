@@ -58,6 +58,33 @@ function PowerBarLayout.EnsureHost()
 	return host
 end
 
+-- Anchoring a Blizzard viewer to our host frame ties its layout to an addon
+-- frame, and Blizzard's own handlers for that viewer then run tainted. Place it
+-- against UIParent at the host's screen rect instead.
+local function PlaceViewerAtHostRect(viewer, h, lift)
+	local hostScale = h.GetEffectiveScale and h:GetEffectiveScale()
+	local viewerScale = viewer.GetEffectiveScale and viewer:GetEffectiveScale()
+	if not hostScale or not viewerScale or viewerScale == 0 then
+		return false
+	end
+	local left, right, top = h:GetLeft(), h:GetRight(), h:GetTop()
+	if not left or not right or not top then
+		return false
+	end
+	-- SetPoint offsets are read in the anchored frame's own units.
+	local k = hostScale / viewerScale
+	local l, r, t = left * k, right * k, (top * k) + lift
+	local inCombat = InCombatLockdown and InCombatLockdown()
+	local ok = pcall(function()
+		if not inCombat then
+			viewer:ClearAllPoints()
+		end
+		viewer:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l, t)
+		viewer:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", r, t)
+	end)
+	return ok
+end
+
 local function NudgeBuffBarAbovePower(db, h, gap)
 	local registry = GCDM.ViewerRegistry
 	local buffBar = registry and registry:BuffBar()
@@ -75,22 +102,7 @@ local function NudgeBuffBarAbovePower(db, h, gap)
 	if cfg and cfg.enabled then
 		return
 	end
-	local lift = Pixel.Snap(gap or 1)
-	local inCombat = InCombatLockdown and InCombatLockdown()
-	if inCombat then
-		pcall(function()
-			buffBar:SetPoint("BOTTOMLEFT", h, "TOPLEFT", 0, lift)
-			buffBar:SetPoint("BOTTOMRIGHT", h, "TOPRIGHT", 0, lift)
-		end)
-	else
-		pcall(function()
-			buffBar:ClearAllPoints()
-			buffBar:SetPoint("BOTTOMLEFT", h, "TOPLEFT", 0, lift)
-			buffBar:SetPoint("BOTTOMRIGHT", h, "TOPRIGHT", 0, lift)
-		end)
-	end
-	buffBar.GCDMViewerAnchor = { "BOTTOMLEFT", h, "TOPLEFT", 0, lift }
-	buffBar.GCDMViewerAnchor2 = { "BOTTOMRIGHT", h, "TOPRIGHT", 0, lift }
+	PlaceViewerAtHostRect(buffBar, h, Pixel.Snap(gap or 1))
 end
 
 local function AnchorHostIndependent(db, h, width, hostH)
@@ -107,8 +119,6 @@ local function AnchorHostIndependent(db, h, width, hostH)
 	end
 	h:ClearAllPoints()
 	h:SetPoint(point, UIParent, point, Pixel.Snap(x), Pixel.Snap(y))
-	h.GCDMViewerAnchor = { point, UIParent, point, Pixel.Snap(x), Pixel.Snap(y) }
-	h.GCDMViewerAnchor2 = nil
 end
 
 function PowerBarLayout.AnchorHost(db)
@@ -135,8 +145,6 @@ function PowerBarLayout.AnchorHost(db)
 	end
 
 	h:ClearAllPoints()
-	h.GCDMViewerAnchor = nil
-	h.GCDMViewerAnchor2 = nil
 	if essential then
 		local strata = essential:GetFrameStrata()
 		if strata then

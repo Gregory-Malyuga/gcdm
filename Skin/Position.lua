@@ -36,17 +36,8 @@ end
 -- whenever Blizzard repositioned a viewer during its own layout and tainted the
 -- rest of it, so the position is simply re-applied on the next layout pass.
 
-local function ClearViewerAnchor(viewer)
-	if not viewer then
-		return
-	end
-	viewer.GCDMViewerAnchor = nil
-	viewer.GCDMViewerAnchor2 = nil
-end
-
 local function ApplyViewerPosition(viewer, cfg)
 	if not viewer or not cfg or cfg.enabled == false then
-		ClearViewerAnchor(viewer)
 		return
 	end
 	if InCombatLockdown and InCombatLockdown() then
@@ -61,13 +52,10 @@ local function ApplyViewerPosition(viewer, cfg)
 	local x = Pixel.Snap(cfg.x or 0)
 	local y = Pixel.Snap(cfg.y or 0)
 
-	viewer.GCDMApplyingViewerAnchor = true
 	pcall(function()
 		viewer:ClearAllPoints()
 		viewer:SetPoint(point, UIParent, point, x, y)
 	end)
-	viewer.GCDMApplyingViewerAnchor = false
-	viewer.GCDMViewerAnchor = { point, UIParent, point, x, y }
 end
 
 local function ResolveBuffBarIndependentConfig(db, cfg)
@@ -107,8 +95,6 @@ local function ApplyPositions()
 				ApplyViewerPosition(viewer, ResolveBuffBarIndependentConfig(db, cfg))
 			elseif cfg and cfg.enabled then
 				ApplyViewerPosition(viewer, cfg)
-			else
-				ClearViewerAnchor(viewer)
 			end
 		end
 	end
