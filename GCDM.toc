@@ -22,6 +22,7 @@ Core\EditModeProbe.lua
 Core\EditModeHooks.lua
 Core\EditMode.lua
 Core\ViewerRegistry.lua
+Core\CDMContent.lua
 Core\ProfileShareCodec.lua
 Core\ProfileShare.lua
 Core\MigrationsText.lua
@@ -95,6 +96,7 @@ Skin\Tests\Logic\KeybindSlots.lua
 Skin\Tests\Logic\TextStyle.lua
 Skin\Tests\Logic\AuraSoundKeys.lua
 Skin\Tests\Logic\WidthFormula.lua
+Skin\Tests\Logic\CDMContent.lua
 Skin\Tests\Behavior\Viewers.lua
 Skin\Tests\Behavior\LayoutEssential.lua
 Skin\Tests\Behavior\LayoutUtility.lua
@@ -105,6 +107,7 @@ Skin\Tests\Behavior\Chrome.lua
 Skin\Tests\Behavior\Pixel.lua
 Skin\Tests.lua
 Options\Helpers.lua
+Options\ContentArgs.lua
 Options\TextArgsIcon.lua
 Options\TextArgsKeybind.lua
 Options\TextArgsBuffBar.lua
