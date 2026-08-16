@@ -1,15 +1,9 @@
-﻿local ADDON_NAME, ns = ...
+local ADDON_NAME, ns = ...
 
 function ns.BuildPowerBarArgsMore(ctx)
 	local db = ctx.db
 	local L = ctx.L
 	local addon = ctx.addon
-	local OUTLINE_VALUES = ctx.OUTLINE_VALUES or {
-		NONE = L["TEXT_OUTLINE_NONE"] or "None",
-		OUTLINE = L["TEXT_OUTLINE_OUTLINE"] or "Outline",
-		THICKOUTLINE = L["TEXT_OUTLINE_THICK"] or "Thick",
-		MONOCHROME = L["TEXT_OUTLINE_MONOCHROME"] or "Monochrome",
-	}
 	return {
 powerBarFont = {
 	type = "select",
@@ -30,7 +24,12 @@ powerBarTextOutline = {
 	type = "select",
 	name = L["TEXT_OUTLINE"],
 	order = 7.5,
-	values = OUTLINE_VALUES,
+	values = {
+		NONE = L["TEXT_OUTLINE_NONE"] or "None",
+		OUTLINE = L["TEXT_OUTLINE_OUTLINE"] or "Outline",
+		THICKOUTLINE = L["TEXT_OUTLINE_THICK"] or "Thick",
+		MONOCHROME = L["TEXT_OUTLINE_MONOCHROME"] or "Monochrome",
+	},
 	get = function()
 		local v = db().powerBarTextOutline or "OUTLINE"
 		if v == "" then
