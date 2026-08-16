@@ -29,6 +29,31 @@ function ns.SetupOptions(addon)
 
 	ns.AssembleBlockTabs(addon, options, ctx)
 
+	-- Last line of defense: AceConfig select.options require values.
+	local fallbackOutline = {
+		NONE = "None",
+		OUTLINE = "Outline",
+		THICKOUTLINE = "Thick",
+		MONOCHROME = "Monochrome",
+	}
+	local function FixSelectValues(node)
+		if type(node) ~= "table" then
+			return
+		end
+		if node.type == "select" or node.type == "multiselect" then
+			local vt = type(node.values)
+			if vt ~= "table" and vt ~= "function" and vt ~= "string" then
+				node.values = fallbackOutline
+			end
+		end
+		if type(node.args) == "table" then
+			for _, child in pairs(node.args) do
+				FixSelectValues(child)
+			end
+		end
+	end
+	FixSelectValues(options)
+
 	AceConfig:RegisterOptionsTable(ADDON_NAME, options)
 	AceConfigDialog:SetDefaultSize(ADDON_NAME, 900, 640)
 	AceConfigDialog:AddToBlizOptions(ADDON_NAME, L["ADDON_NAME"])
