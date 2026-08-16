@@ -19,6 +19,37 @@ enabled = {
 		addon:Refresh()
 	end,
 },
+customPanelsEnabled = {
+	type = "toggle",
+	name = L["CUSTOM_PANELS_ENABLED"],
+	desc = L["CUSTOM_PANELS_ENABLED_DESC"],
+	order = 1.2,
+	width = "full",
+	get = function()
+		return db().customPanelsEnabled and true or false
+	end,
+	set = function(_, value)
+		db().customPanelsEnabled = value and true or false
+		addon:Refresh()
+	end,
+},
+hideBlizzardViewers = {
+	type = "toggle",
+	name = L["CUSTOM_HIDE_BLIZZARD"],
+	desc = L["CUSTOM_HIDE_BLIZZARD_DESC"],
+	order = 1.3,
+	width = "full",
+	disabled = function()
+		return not db().customPanelsEnabled
+	end,
+	get = function()
+		return db().hideBlizzardViewers and true or false
+	end,
+	set = function(_, value)
+		db().hideBlizzardViewers = value and true or false
+		addon:Refresh()
+	end,
+},
 hint = {
 	type = "description",
 	name = L["PLACEHOLDER"] .. "\n" .. L["OPEN_HINT"],

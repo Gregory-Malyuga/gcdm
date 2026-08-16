@@ -103,4 +103,21 @@ function GCDM.MigrateViewerPos(p)
 	if type(p.powerBarWidth) == "number" and p.powerBarWidth > 0 and p.powerBarWidth < 200 then
 		p.powerBarWidth = 200
 	end
+	if type(p.customGroups) ~= "table" then
+		p.customGroups = {}
+	end
+	if type(p.customGroupSeeded) ~= "table" then
+		p.customGroupSeeded = {}
+	end
+	for _, key in ipairs({ "essential", "utility", "buff", "buffBar" }) do
+		if type(p.customGroups[key]) ~= "table" then
+			p.customGroups[key] = {}
+		end
+	end
+	if p.customPanelsEnabled == nil then
+		p.customPanelsEnabled = true
+	end
+	if p.hideBlizzardViewers == nil then
+		p.hideBlizzardViewers = true
+	end
 end

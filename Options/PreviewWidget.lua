@@ -36,6 +36,20 @@ local function CollectViewerTextures(viewerName, limit)
 	return paths
 end
 
+local function CollectPreviewTextures(groupKey, viewerName, limit)
+	local db = GCDM and GCDM.GetDB and GCDM:GetDB()
+	local catalog = GCDM and GCDM.CustomCatalog
+	if db and db.customPanelsEnabled and catalog and catalog:IsReady() then
+		local paths = {}
+		local entries = catalog:GetActiveEntries(groupKey)
+		for i = 1, math.min(#entries, limit) do
+			paths[#paths + 1] = entries[i].iconID or PLACEHOLDER_ICON
+		end
+		return paths
+	end
+	return CollectViewerTextures(viewerName, limit)
+end
+
 local function SetRowTextures(row, paths)
 	for i = 1, #row do
 		local icon = row[i]
@@ -49,9 +63,9 @@ end
 local function RefreshPreview(self)
 	local db = GCDM and GCDM.GetDB and GCDM:GetDB() or {}
 	local viewers = GCDM and GCDM.CONST and GCDM.CONST.VIEWERS or {}
-	SetRowTextures(self.essentialIcons, CollectViewerTextures(viewers.ESSENTIAL, #self.essentialIcons))
-	SetRowTextures(self.utilityIcons, CollectViewerTextures(viewers.UTILITY, #self.utilityIcons))
-	SetRowTextures(self.buffIcons, CollectViewerTextures(viewers.BUFF, #self.buffIcons))
+	SetRowTextures(self.essentialIcons, CollectPreviewTextures("essential", viewers.ESSENTIAL, #self.essentialIcons))
+	SetRowTextures(self.utilityIcons, CollectPreviewTextures("utility", viewers.UTILITY, #self.utilityIcons))
+	SetRowTextures(self.buffIcons, CollectPreviewTextures("buff", viewers.BUFF, #self.buffIcons))
 
 	local color = db.powerBarColor or { r = 0.15, g = 0.55, b = 0.95, a = 1 }
 	self.powerFill:SetColorTexture(color.r or 0.15, color.g or 0.55, color.b or 0.95, color.a or 1)

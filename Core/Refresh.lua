@@ -4,6 +4,18 @@ local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 local callbacks = {}
 local ordered = {}
 local seq = 0
+local NATIVE_SKIN_CALLBACKS = {
+	["Skin.Layout"] = true,
+	["Skin.Position"] = true,
+	["Skin.Icon"] = true,
+	["Skin.Glow"] = true,
+	["Skin.Text"] = true,
+	["Skin.BuffBar"] = true,
+	["Skin.Border"] = true,
+	["Skin.Keybinds"] = true,
+	["Skin.Size"] = true,
+	["Skin.PressOverlay"] = true,
+}
 
 local function InsertSorted(entry)
 	for i = 1, #ordered do
@@ -59,7 +71,11 @@ function GCDM:Refresh(scope)
 	scope = scope or GCDM.CONST.REFRESH.ALL
 	for i = 1, #ordered do
 		local entry = ordered[i]
-		if not entry.scopes or entry.scopes[scope] or scope == GCDM.CONST.REFRESH.ALL then
+		local db = self.GetDB and self:GetDB()
+		local catalogReady = self.CustomCatalog and self.CustomCatalog:IsReady()
+		local customPanels = db and db.enabled and db.customPanelsEnabled and db.customGroupsSeeded and catalogReady
+		local skipNativeSkin = customPanels and NATIVE_SKIN_CALLBACKS[entry.id]
+		if not skipNativeSkin and (not entry.scopes or entry.scopes[scope] or scope == GCDM.CONST.REFRESH.ALL) then
 			entry.callback(scope)
 		end
 	end

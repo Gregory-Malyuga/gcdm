@@ -118,6 +118,18 @@ ns.defaults = {
 			powerBar = { enabled = true, point = "CENTER", x = 0, y = -100 },
 		},
 
+		-- GCDM-owned panels. Arrays contain Blizzard cooldownIDs in display order.
+		customPanelsEnabled = true,
+		hideBlizzardViewers = true,
+		customGroupsSeeded = false,
+		customGroupSeeded = {},
+		customGroups = {
+			essential = {},
+			utility = {},
+			buff = {},
+			buffBar = {},
+		},
+
 		buffBarEnabled = true,
 		buffBarStyle = "solid", -- blizzard | solid (SharedMedia textures)
 		buffBarTexture = "Solid",

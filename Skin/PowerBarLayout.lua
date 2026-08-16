@@ -59,6 +59,9 @@ function PowerBarLayout.EnsureHost()
 end
 
 local function NudgeBuffBarAbovePower(db, h, gap)
+	if db.customPanelsEnabled then
+		return
+	end
 	local registry = GCDM.ViewerRegistry
 	local buffBar = registry and registry:BuffBar()
 	if not buffBar then
@@ -109,8 +112,23 @@ end
 
 function PowerBarLayout.AnchorHost(db)
 	local h = PowerBarLayout.EnsureHost()
-	local essential = GCDM.ViewerRegistry and GCDM.ViewerRegistry:Essential()
+	local essential
+	local customReady = db.enabled
+		and db.customPanelsEnabled
+		and db.customGroupsSeeded
+		and GCDM.CustomCatalog
+		and GCDM.CustomCatalog:IsReady()
+	if customReady and GCDM.CustomPanels then
+		essential = GCDM.CustomPanels:GetFrame("essential")
+	end
+	if not essential then essential = GCDM.ViewerRegistry and GCDM.ViewerRegistry:Essential() end
 	local width = ResolveWidth(db)
+	if customReady and essential and essential.GetWidth then
+		local customWidth = essential:GetWidth()
+		if type(customWidth) == "number" and customWidth > 0 then
+			width = math.max(customWidth, MinBarWidth())
+		end
+	end
 	local height = Pixel.Snap(db.powerBarHeight or (GCDM.CONST and GCDM.CONST.DEFAULT_POWER_BAR_HEIGHT) or 10)
 	local gap = Pixel.Snap(db.powerBarGap or (GCDM.CONST and GCDM.CONST.DEFAULT_POWER_BAR_GAP) or 2)
 	local showSecondary = secondaryBar and secondaryBar:IsShown()

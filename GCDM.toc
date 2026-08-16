@@ -7,7 +7,7 @@
 ## X-License: Proprietary — All Rights Reserved (see LICENSE)
 ## IconTexture: Interface\AddOns\GCDM\Media\GCDM_Logo
 ## SavedVariables: GCDMDB
-## OptionalDeps: SharedMedia, SharedMediaAdditionalFonts
+## OptionalDeps: SharedMedia, SharedMediaAdditionalFonts, Blizzard_AuraContainer
 ## DefaultState: enabled
 ## Category: Combat
 ## Category-ruRU: Бой
@@ -77,6 +77,8 @@ Skin\PowerBar.lua
 Skin\AuraSoundValues.lua
 Skin\AuraSoundRules.lua
 Skin\AuraSounds.lua
+Groups\Catalog.lua
+Groups\CustomPanels.lua
 Skin\DebugUtil.lua
 Skin\DebugDumpFrame.lua
 Skin\DebugDumpBuffBarHead.lua
@@ -122,6 +124,7 @@ Options\SkinGroup.lua
 Options\GeneralArgs.lua
 Options\AssembleMerge.lua
 Options\PreviewWidget.lua
+Options\GroupEditorWidget.lua
 Options\Assemble.lua
 Options\ProfileShare.lua
 Options\AuraSoundsLabels.lua
