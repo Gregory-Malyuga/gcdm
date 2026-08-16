@@ -32,51 +32,9 @@ local function GetPosConfig(db, key)
 	return cfg
 end
 
-local function RestoreViewerAnchor(self)
-	local a = self.GCDMViewerAnchor
-	if not a then
-		return
-	end
-	local inCombat = InCombatLockdown and InCombatLockdown()
-	self.GCDMApplyingViewerAnchor = true
-	if inCombat then
-		pcall(function()
-			self:SetPoint(a[1], a[2], a[3], a[4], a[5])
-			local a2 = self.GCDMViewerAnchor2
-			if a2 then
-				self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
-			end
-		end)
-	else
-		pcall(function()
-			self:ClearAllPoints()
-			self:SetPoint(a[1], a[2], a[3], a[4], a[5])
-			local a2 = self.GCDMViewerAnchor2
-			if a2 then
-				self:SetPoint(a2[1], a2[2], a2[3], a2[4], a2[5])
-			end
-		end)
-	end
-	self.GCDMApplyingViewerAnchor = false
-end
-
-local function InstallViewerSnap(viewer)
-	if viewer.GCDMPosSnapHooked then
-		return
-	end
-	viewer.GCDMPosSnapHooked = true
-	hooksecurefunc(viewer, "SetPoint", function(self)
-		if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
-			self.GCDMViewerAnchor = nil
-			self.GCDMViewerAnchor2 = nil
-			return
-		end
-		if not self.GCDMViewerAnchor or self.GCDMApplyingViewerAnchor then
-			return
-		end
-		RestoreViewerAnchor(self)
-	end)
-end
+-- The viewer position used to be defended by a SetPoint hook. That hook ran
+-- whenever Blizzard repositioned a viewer during its own layout and tainted the
+-- rest of it, so the position is simply re-applied on the next layout pass.
 
 local function ClearViewerAnchor(viewer)
 	if not viewer then
@@ -103,7 +61,6 @@ local function ApplyViewerPosition(viewer, cfg)
 	local x = Pixel.Snap(cfg.x or 0)
 	local y = Pixel.Snap(cfg.y or 0)
 
-	InstallViewerSnap(viewer)
 	viewer.GCDMApplyingViewerAnchor = true
 	pcall(function()
 		viewer:ClearAllPoints()

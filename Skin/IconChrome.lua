@@ -101,57 +101,20 @@ local function SuppressCooldownFlash(flash)
 	flash.GCDMSuppressingFlash = false
 end
 
-local function HookCooldownFlash(flash)
-	if not flash or flash.GCDMFlashSuppressed then
-		return
-	end
-	flash.GCDMFlashSuppressed = true
-	SuppressCooldownFlash(flash)
-	if flash.HookScript then
-		flash:HookScript("OnShow", function(self)
-			SuppressCooldownFlash(self)
-		end)
-	end
-	if flash.Show then
-		hooksecurefunc(flash, "Show", function(self)
-			SuppressCooldownFlash(self)
-		end)
-	end
-	if flash.SetShown then
-		hooksecurefunc(flash, "SetShown", function(self, shown)
-			if shown then
-				SuppressCooldownFlash(self)
-			end
-		end)
-	end
-	if flash.SetAlpha then
-		hooksecurefunc(flash, "SetAlpha", function(self, alpha)
-			if self.GCDMSuppressingFlash then
-				return
-			end
-			if type(alpha) == "number" and alpha > 0 then
-				SuppressCooldownFlash(self)
-			end
-		end)
-	end
-	local anim = flash.FlashAnim
-	if anim and anim.Play then
-		hooksecurefunc(anim, "Play", function(self)
-			self:Stop()
-			SuppressCooldownFlash(flash)
-		end)
-	end
-end
-
+-- Blizzard only calls Show/Hide on the cooldown flash and the out-of-range
+-- texture (the flash animation drives the alpha of its own child texture, not
+-- of the frame), so zeroing alpha here keeps both silenced for good. Hooking
+-- their Show/SetAlpha instead would run inside RefreshSpellCooldownInfo and
+-- taint the rest of that refresh.
 local function EnsureFeedbackLayers(frame)
-	HookCooldownFlash(frame.CooldownFlash)
+	SuppressCooldownFlash(frame.CooldownFlash)
 	local cd = frame.Cooldown
 	if cd then
-		HookCooldownFlash(cd.CooldownFlash)
+		SuppressCooldownFlash(cd.CooldownFlash)
 	end
 	local chargeCd = frame.ChargeCooldown
 	if chargeCd then
-		HookCooldownFlash(chargeCd.CooldownFlash)
+		SuppressCooldownFlash(chargeCd.CooldownFlash)
 	end
 	local oor = frame.OutOfRange
 	if not oor then
@@ -159,35 +122,6 @@ local function EnsureFeedbackLayers(frame)
 	end
 	oor:SetAlpha(0)
 	oor:Hide()
-	if oor.GCDMSuppressed then
-		return
-	end
-	oor.GCDMSuppressed = true
-	local function Suppress(self)
-		if self.GCDMSuppressing then
-			return
-		end
-		self.GCDMSuppressing = true
-		self:SetAlpha(0)
-		if self.IsShown and self:IsShown() then
-			self:Hide()
-		end
-		self.GCDMSuppressing = false
-	end
-	hooksecurefunc(oor, "Show", Suppress)
-	hooksecurefunc(oor, "SetShown", function(self, shown)
-		if shown then
-			Suppress(self)
-		end
-	end)
-	hooksecurefunc(oor, "SetAlpha", function(self, alpha)
-		if self.GCDMSuppressing then
-			return
-		end
-		if type(alpha) == "number" and alpha > 0 then
-			Suppress(self)
-		end
-	end)
 end
 function Skin.ApplyIconChrome(frame, icon)
 	KillLegacyEdgeBorders(frame)

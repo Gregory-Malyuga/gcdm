@@ -160,12 +160,8 @@ function Skin.ApplyBuffBarIconVisibility(frame, db, barHeight)
 	local showIcon = db.buffBarShowIcon ~= false
 	if not iconFrame then return showIcon, nil end
 	frame.GCDMShowBarIcon = showIcon
-	if not iconFrame.GCDMIconHideHooked then
-		iconFrame.GCDMIconHideHooked = true
-		hooksecurefunc(iconFrame, "Show", function(self)
-			self:SetAlpha(frame.GCDMShowBarIcon ~= false and 1 or 0)
-		end)
-	end
+	-- Alpha, not a Show hook: Blizzard shows the icon from inside its bar
+	-- refresh, and a hook there would taint it.
 	if not showIcon then iconFrame:SetAlpha(0) return false, nil end
 	iconFrame:SetAlpha(1)
 	iconFrame:Show()
