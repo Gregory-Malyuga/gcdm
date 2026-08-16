@@ -1,4 +1,4 @@
-local ADDON_NAME, ns = ...
+﻿local ADDON_NAME, ns = ...
 
 function ns.BuildPowerBarArgsMore(ctx)
 	local db = ctx.db
@@ -17,28 +17,6 @@ powerBarFont = {
 	end,
 	set = function(_, v)
 		db().powerBarFont = v
-		ctx.RefreshSkin()
-	end,
-},
-powerBarTextOutline = {
-	type = "select",
-	name = L["TEXT_OUTLINE"],
-	order = 7.5,
-	values = {
-		NONE = L["TEXT_OUTLINE_NONE"] or "None",
-		OUTLINE = L["TEXT_OUTLINE_OUTLINE"] or "Outline",
-		THICKOUTLINE = L["TEXT_OUTLINE_THICK"] or "Thick",
-		MONOCHROME = L["TEXT_OUTLINE_MONOCHROME"] or "Monochrome",
-	},
-	get = function()
-		local v = db().powerBarTextOutline or "OUTLINE"
-		if v == "" then
-			return "NONE"
-		end
-		return v
-	end,
-	set = function(_, v)
-		db().powerBarTextOutline = (v == "NONE") and "" or v
 		ctx.RefreshSkin()
 	end,
 },

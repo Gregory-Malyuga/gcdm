@@ -166,8 +166,34 @@ powerBarFontSize = {
 	end,
 },
 	}
-	for k, v in pairs(ns.BuildPowerBarArgsMore(ctx)) do
-		a[k] = v
+	if type(ns.BuildPowerBarArgsMore) == "function" then
+		for k, v in pairs(ns.BuildPowerBarArgsMore(ctx)) do
+			a[k] = v
+		end
 	end
+	-- Always stamp outline values AFTER More merge. A stale PowerBarArgsMore that
+	-- still says `values = OUTLINE_VALUES` (nil global) must not win.
+	a.powerBarTextOutline = {
+		type = "select",
+		name = L["TEXT_OUTLINE"] or "Outline",
+		order = 7.5,
+		values = {
+			NONE = "None",
+			OUTLINE = "Outline",
+			THICKOUTLINE = "Thick",
+			MONOCHROME = "Monochrome",
+		},
+		get = function()
+			local v = db().powerBarTextOutline or "OUTLINE"
+			if v == "" then
+				return "NONE"
+			end
+			return v
+		end,
+		set = function(_, v)
+			db().powerBarTextOutline = (v == "NONE") and "" or v
+			ctx.RefreshSkin()
+		end,
+	}
 	return a
 end

@@ -116,8 +116,8 @@ Options\SkinBorderArgs.lua
 Options\SkinGlowArgs.lua
 Options\BuffBarArgs.lua
 Options\BuffBarArgsMore.lua
-Options\PowerBarArgs.lua
 Options\PowerBarArgsMore.lua
+Options\PowerBarArgs.lua
 Options\SkinGroup.lua
 Options\GeneralArgs.lua
 Options\AssembleMerge.lua
