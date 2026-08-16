@@ -19,7 +19,7 @@ local function GetCountdownFontString(cd)
 	return nil
 end
 
-local function GetStackFontString(frame)
+function Skin.GetStackFontString(frame)
 	if not frame then return nil end
 	local charge = frame.ChargeCount
 	if charge and charge.Current then return charge.Current, charge end
@@ -38,6 +38,8 @@ local function GetStackFontString(frame)
 	end
 	return nil
 end
+
+Skin.GetStackFontString = GetStackFontString
 
 local function StyleCooldownText(frame, style, viewerKey)
 	local cd = frame.Cooldown
