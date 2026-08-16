@@ -2,11 +2,19 @@ local ADDON_NAME, ns = ...
 local GCDM = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 local Skin = GCDM.Skin
 
--- Hook CDM aura alerts and play matching rules.
+-- Watch CDM aura frames and play matching rules.
+--
+-- This used to hook TriggerAuraAppliedAlert / TriggerAuraRemovedAlert on the
+-- item frames. Those hooks run inside Blizzard's UNIT_AURA loop, which then
+-- continues tainted and blows up on its own secret aura values. We now sample
+-- frame state from our own event frame instead.
 
 local applying = false
 local lastPlay = {}
 local THROTTLE = 0.35
+
+local shownState = setmetatable({}, { __mode = "k" })
+local stackState = setmetatable({}, { __mode = "k" })
 
 local function SpellIDsMatch(ruleSpell, frameSpell)
 	ruleSpell = tonumber(ruleSpell)
@@ -85,70 +93,83 @@ local function PlayRulesForSpell(spellID, event)
 	end
 end
 
-local function OnAuraApplied(frame)
-	local spellID = Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame)
-	PlayRulesForSpell(spellID, "apply")
-end
-
-local function OnAuraRemoved(frame)
-	local spellID = Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame)
-	PlayRulesForSpell(spellID, "remove")
-end
-
-local function HookAuraFrame(frame)
-	if not frame or frame.GCDMAuraSoundHooked then
-		return
-	end
-	frame.GCDMAuraSoundHooked = true
-	if frame.TriggerAuraAppliedAlert then
-		hooksecurefunc(frame, "TriggerAuraAppliedAlert", function(f)
-			OnAuraApplied(f)
-		end)
-	end
-	if frame.TriggerAuraRemovedAlert then
-		hooksecurefunc(frame, "TriggerAuraRemovedAlert", function(f)
-			OnAuraRemoved(f)
-		end)
-	end
-	if frame.RefreshApplications then
-		hooksecurefunc(frame, "RefreshApplications", function(f)
-			if f and f:IsShown() then
-				PlayRulesForSpell(Skin.GetFrameSpellID and Skin.GetFrameSpellID(f), "stack")
+local function IsFrameActive(frame)
+	if frame.IsActive then
+		local ok, active = pcall(frame.IsActive, frame)
+		if ok then
+			if issecretvalue and issecretvalue(active) then
+				-- fall through to IsShown
+			elseif canaccessvalue and not canaccessvalue(active) then
+				-- fall through to IsShown
+			elseif active == true then
+				return true
+			elseif active == false then
+				return false
 			end
-		end)
+		end
 	end
+	local ok, shown = pcall(frame.IsShown, frame)
+	if not ok then
+		return false
+	end
+	if issecretvalue and issecretvalue(shown) then
+		return false
+	end
+	if canaccessvalue and not canaccessvalue(shown) then
+		return false
+	end
+	return shown == true
 end
 
-local function HookViewerPool(viewer)
-	if not viewer then
-		return
+--- Stack text can be a secret string; then stack rules simply stay silent.
+local function StackText(frame)
+	local fs = Skin.GetStackFontString and Skin.GetStackFontString(frame)
+	if not fs or not fs.GetText then
+		return nil
 	end
+	local ok, text = pcall(fs.GetText, fs)
+	if not ok then
+		return nil
+	end
+	if issecretvalue and issecretvalue(text) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(text) then
+		return nil
+	end
+	return text
+end
+
+local function CollectAuraFrames()
+	local frames = {}
 	local registry = GCDM.ViewerRegistry
-	if registry and registry.HookOnce then
-		registry:HookOnce(viewer, "GCDMAuraSoundAcquireHooked", "OnAcquireItemFrame", function(_, itemFrame)
-			HookAuraFrame(itemFrame)
-		end)
-	elseif viewer.OnAcquireItemFrame and not viewer.GCDMAuraSoundAcquireHooked then
-		viewer.GCDMAuraSoundAcquireHooked = true
-		hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, itemFrame)
-			HookAuraFrame(itemFrame)
-		end)
+	if not registry then
+		return frames
 	end
-	if Skin.CollectIconFrames then
-		local icons = Skin.CollectIconFrames(viewer)
-		for i = 1, #icons do
-			HookAuraFrame(icons[i])
+	local viewers = { registry:Buff(), registry:BuffBar() }
+	for i = 1, #viewers do
+		local viewer = viewers[i]
+		if viewer then
+			if Skin.CollectIconFrames then
+				local icons = Skin.CollectIconFrames(viewer)
+				for j = 1, #icons do
+					frames[#frames + 1] = icons[j]
+				end
+			end
+			if Skin.CollectBarFrames then
+				local bars = Skin.CollectBarFrames(viewer)
+				for j = 1, #bars do
+					frames[#frames + 1] = bars[j]
+				end
+			end
 		end
 	end
-	if Skin.CollectBarFrames then
-		local bars = Skin.CollectBarFrames(viewer)
-		for i = 1, #bars do
-			HookAuraFrame(bars[i])
-		end
-	end
+	return frames
 end
 
-local function ApplyAuraSounds()
+--- silent seeds the state without playing: on login and after a reload every
+--- aura already up would otherwise fire its apply rule.
+local function ScanAuraFrames(silent)
 	if applying then
 		return
 	end
@@ -158,15 +179,28 @@ local function ApplyAuraSounds()
 		if not db or not db.enabled or db.auraSoundEnabled == false then
 			return
 		end
-		local registry = GCDM.ViewerRegistry
-		if not registry then
-			return
-		end
-		if registry.Buff then
-			HookViewerPool(registry:Buff())
-		end
-		if registry.BuffBar then
-			HookViewerPool(registry:BuffBar())
+		local frames = CollectAuraFrames()
+		for i = 1, #frames do
+			local frame = frames[i]
+			local active = IsFrameActive(frame)
+			local was = shownState[frame]
+			shownState[frame] = active
+
+			local spellID = Skin.GetFrameSpellID and Skin.GetFrameSpellID(frame)
+			if not silent and was ~= nil and spellID then
+				if active and not was then
+					PlayRulesForSpell(spellID, "apply")
+				elseif was and not active then
+					PlayRulesForSpell(spellID, "remove")
+				end
+			end
+
+			local stack = active and StackText(frame) or nil
+			local prevStack = stackState[frame]
+			stackState[frame] = stack
+			if not silent and active and stack and prevStack and stack ~= prevStack and spellID then
+				PlayRulesForSpell(spellID, "stack")
+			end
 		end
 	end)
 	applying = false
@@ -177,8 +211,12 @@ local function ApplyAuraSounds()
 end
 
 GCDM:RegisterRefreshCallback("Skin.AuraSounds", function()
-	ApplyAuraSounds()
+	ScanAuraFrames(true)
 end, 50, {
 	GCDM.CONST.REFRESH.ALL,
 	GCDM.CONST.REFRESH.STYLE,
 })
+
+GCDM.CDMWatch:Register("Skin.AuraSounds", function(events)
+	ScanAuraFrames(events and events.PLAYER_ENTERING_WORLD)
+end)

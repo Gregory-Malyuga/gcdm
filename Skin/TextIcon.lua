@@ -39,6 +39,8 @@ local function GetStackFontString(frame)
 	return nil
 end
 
+Skin.GetStackFontString = GetStackFontString
+
 local function StyleCooldownText(frame, style, viewerKey)
 	local cd = frame.Cooldown
 	if not cd or not style then return end
@@ -53,42 +55,17 @@ local function StyleCooldownText(frame, style, viewerKey)
 	if fs.SetDrawLayer then fs:SetDrawLayer("OVERLAY", 7) end
 	Skin.TextStyleFontString(fs, fontObj, style.cooldownTextColor, Skin.TextNormalizePoint(style.cooldownTextPoint, "CENTER"),
 		style.cooldownTextOffsetX or 0, style.cooldownTextOffsetY or 0, frame, path, size, outline)
-	if not cd.GCDMTextHooked then
-		cd.GCDMTextHooked = true
-		cd:HookScript("OnShow", function(self)
-			local parent = self:GetParent()
-			local profile = GCDM:GetDB()
-			if parent and profile and profile.enabled then
-				local key = Skin.GetViewerKeyForFrame(parent)
-				if key and ICON_VIEWERS[key] then
-					StyleCooldownText(parent, Skin.GetTextStyle(profile, key), key)
-				end
-			end
-		end)
-	end
 end
 
+-- Raise the holder Blizzard already owns (ChargeCount). Reparenting its
+-- FontString onto a frame of ours writes into the CDM item frame, and Blizzard
+-- then trips over its own secret aura and cooldown values.
 local function RaiseStackAboveSwipe(frame, fs, anchor)
 	local cd = frame and frame.Cooldown
 	local base = (frame and frame.GetFrameLevel and frame:GetFrameLevel()) or 0
 	local above = ((cd and cd.GetFrameLevel and cd:GetFrameLevel()) or (base + 1)) + 5
-	local holder = anchor
-	if holder and holder ~= frame and holder.SetFrameLevel then
-		holder:SetFrameLevel(above)
-	elseif fs then
-		local overlay = frame.GCDMStackOverlay
-		if not overlay then
-			overlay = CreateFrame("Frame", nil, frame)
-			overlay:SetAllPoints(frame)
-			frame.GCDMStackOverlay = overlay
-		end
-		overlay:SetFrameLevel(above)
-		if fs.GetParent and fs.SetParent and fs:GetParent() ~= overlay then
-			local point, _, relPoint, x, y = fs:GetPoint(1)
-			fs:SetParent(overlay)
-			fs:ClearAllPoints()
-			if point then fs:SetPoint(point, overlay, relPoint or point, x or 0, y or 0) end
-		end
+	if anchor and anchor ~= frame and anchor.SetFrameLevel then
+		anchor:SetFrameLevel(above)
 	end
 	if fs and fs.SetDrawLayer then fs:SetDrawLayer("OVERLAY", 7) end
 end
@@ -96,6 +73,11 @@ end
 function Skin.StyleStackText(frame, style, viewerKey)
 	local fs, anchor = GetStackFontString(frame)
 	if not fs or not style then return end
+	if not fs.GetObjectType or fs:GetObjectType() ~= "FontString" then return end
+	if not (Skin.FetchFont and Skin.ResolveOutline and Skin.TextGetFontObj
+		and Skin.TextApplyFontObject and Skin.TextStyleFontString and Skin.TextNormalizePoint) then
+		return
+	end
 	local path = Skin.FetchFont(style.textFont or "Expressway")
 	local size = style.stackFontSize or 12
 	local outline = Skin.ResolveOutline(style.textOutline)
@@ -104,20 +86,6 @@ function Skin.StyleStackText(frame, style, viewerKey)
 	Skin.TextStyleFontString(fs, fontObj, style.stackTextColor, Skin.TextNormalizePoint(style.stackTextPoint, "BOTTOMRIGHT"),
 		style.stackTextOffsetX or 0, style.stackTextOffsetY or 0, anchor or frame, path, size, outline)
 	RaiseStackAboveSwipe(frame, fs, anchor)
-	if not fs.GCDMStackHooked then
-		fs.GCDMStackHooked = true
-		if fs.HookScript then
-			fs:HookScript("OnShow", function()
-				local profile = GCDM:GetDB()
-				if profile and profile.enabled then
-					local key = Skin.GetViewerKeyForFrame(frame)
-					if key and ICON_VIEWERS[key] then
-						Skin.StyleStackText(frame, Skin.GetTextStyle(profile, key), key)
-					end
-				end
-			end)
-		end
-	end
 end
 
 local function EnsureKeybindFontString(frame)

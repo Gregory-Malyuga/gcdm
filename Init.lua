@@ -10,7 +10,7 @@ _G.GCDM = GCDM
 
 GCDM.ADDON_NAME = ADDON_NAME
 GCDM.VERSION = "0.1.2"
-GCDM.BUILD = "20260816-c23"
+GCDM.BUILD = "20260816-c24"
 GCDM.LICENSE = "Proprietary — All Rights Reserved"
 
 function GCDM:OnInitialize()
@@ -49,7 +49,7 @@ function GCDM:OnEnable()
 		end)
 	end
 	self:Refresh()
-		print("|cff3bb273GCDM|r loaded " .. tostring(self.VERSION) .. " build=" .. tostring(self.BUILD) .. " branch=stable")
+	print("|cff3bb273GCDM|r loaded " .. tostring(self.VERSION) .. " build=" .. tostring(self.BUILD) .. " — if Bugsack shows GCDM*Hooked, you still have an old AddOns copy")
 end
 
 function GCDM:OnViewerDataChanged()

@@ -25,62 +25,91 @@ local function ApplyTextVisibility(frame, bar, db)
 	local showDuration = db.buffBarShowDuration ~= false
 	frame.GCDMShowBarName = showName
 	frame.GCDMShowBarDuration = showDuration
-	local function hook(hookKey, region, flagKey)
-		if not region or frame[hookKey] then return end
-		frame[hookKey] = true
-		hooksecurefunc(region, "Show", function(self)
-			if frame[flagKey] == false then self:SetAlpha(0) end
-		end)
-		hooksecurefunc(region, "SetShown", function(self, shown)
-			if shown and frame[flagKey] == false then self:SetAlpha(0) end
-		end)
-	end
-	hook("GCDMNameHooked", bar and bar.Name, "GCDMShowBarName")
-	hook("GCDMDurationHooked", bar and bar.Duration, "GCDMShowBarDuration")
+	-- Blizzard's Show()/SetShown() leave alpha alone, so hiding a label by alpha
+	-- sticks without a hook that would run inside Blizzard's refresh.
 	if bar and bar.Name then bar.Name:SetAlpha(showName and 1 or 0) end
 	if bar and bar.Duration then bar.Duration:SetAlpha(showDuration and 1 or 0) end
 end
 
+-- Visual only. Never call HidePandemicStateFrame: it ends in
+-- RefreshOnUpdateRegistration, which re-registers Blizzard's OnUpdate under our
+-- taint. Alpha survives Blizzard's own Show(), so zeroing it is enough and needs
+-- no hook running inside Blizzard's refresh.
+local function HideBuffBarPandemic(frame)
+	local db = GCDM:GetDB()
+	if not db or db.hidePandemicIndicator == false then return end
+	if frame.PandemicIcon then
+		frame.PandemicIcon:SetAlpha(0)
+		frame.PandemicIcon:Hide()
+	end
+end
+
+Skin.HideBuffBarPandemic = HideBuffBarPandemic
+
 local StyleOneBar
 
-local function GuardBarSize(frame, width, height)
-	frame.GCDMWantW, frame.GCDMWantH = width, height
-	if frame.GCDMSizeGuardHooked then return end
-	frame.GCDMSizeGuardHooked = true
-	local function onSizeTouch(self)
-		if self.GCDMApplyingSize then return end
-		if GCDM.ShouldDeferIconLayout and GCDM:ShouldDeferIconLayout() then return end
-		local w, h = self.GCDMWantW, self.GCDMWantH
-		if not w or not h then return end
-		local epsilon = (GCDM.CONST and GCDM.CONST.SIZE_EPSILON) or 0.5
-		if math.abs((self:GetWidth() or 0) - w) > epsilon or math.abs((self:GetHeight() or 0) - h) > epsilon then
-			self.GCDMApplyingSize = true
-			self:SetSize(w, h)
-			self.GCDMApplyingSize = false
-		end
-		if self.GCDMSizeGuardPending then return end
-		self.GCDMSizeGuardPending = true
-		C_Timer.After(0, function()
-			self.GCDMSizeGuardPending = false
-			if GCDM.ShouldDeferIconLayout and GCDM:ShouldDeferIconLayout() then return end
-			local db = GCDM:GetDB()
-			if db and db.enabled and self.Bar and self.GCDMWantW and self.GCDMWantH then
-				StyleOneBar(self, db, self.GCDMWantW, self.GCDMWantH)
-			end
-		end)
+local function PlainNumber(value)
+	if type(value) ~= "number" then
+		return nil
 	end
-	hooksecurefunc(frame, "SetWidth", onSizeTouch)
-	hooksecurefunc(frame, "SetHeight", onSizeTouch)
-	hooksecurefunc(frame, "SetSize", onSizeTouch)
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	return value
+end
+
+local function PlainBool(ok, value)
+	if not ok then
+		return nil
+	end
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	if value == true then
+		return true
+	end
+	if value == false then
+		return false
+	end
+	return nil
+end
+
+local function LayoutIndexOf(frame)
+	return PlainNumber(frame and frame.layoutIndex) or 0
+end
+
+local function IsBarShownOrActive(frame)
+	if frame.IsActive then
+		local active = PlainBool(pcall(frame.IsActive, frame))
+		if active == true then
+			return true
+		end
+	end
+	local shown = PlainBool(pcall(frame.IsShown, frame))
+	return shown == true
+end
+
+-- Bar size used to be guarded by SetWidth/SetHeight/SetSize hooks that fought
+-- Blizzard inside its own layout pass. The size is re-applied by the next
+-- CDMWatch pass instead.
+local function RememberBarSize(frame, width, height)
+	frame.GCDMWantW, frame.GCDMWantH = width, height
 end
 
 StyleOneBar = function(frame, db, width, height)
 	local bar = frame.Bar
 	if not bar or not width or width < 8 or not height or height < 2 then return end
 	local style = Skin.BuffBarResolveStyle(db)
+	HideBuffBarPandemic(frame)
 	Skin.HideBuffBarPipAndExtras(frame, style)
 	Pixel.Update()
-	GuardBarSize(frame, width, height)
+	RememberBarSize(frame, width, height)
 	frame:SetSize(width, height)
 	local showIcon, iconFrame = Skin.ApplyBuffBarIconVisibility(frame, db, height)
 	local gap = Pixel.Snap(db.buffBarIconGap or 0)
@@ -105,6 +134,46 @@ end
 
 Skin.StyleOneBuffBar = StyleOneBar
 
+-- Keep BuffBarCooldownViewer on Essential (a Blizzard frame), never on GCDM_PowerBarHost.
+-- Anchoring the viewer to an addon frame made Blizzard's OnUnitAura continue tainted.
+function Skin.PlaceBuffBarViewer(db)
+	db = db or (GCDM.GetDB and GCDM:GetDB())
+	if not db or not db.enabled or db.buffBarEnabled == false then
+		return
+	end
+	if db.buffBarFollowEssential == false then
+		return
+	end
+	local cfg = db.viewerPos and db.viewerPos.buffBar
+	if cfg and cfg.enabled then
+		return
+	end
+	if InCombatLockdown and InCombatLockdown() then
+		return
+	end
+	if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
+		return
+	end
+	local registry = GCDM.ViewerRegistry
+	local viewer = registry and registry:BuffBar()
+	local essential = registry and registry:Essential()
+	if not viewer or not essential then
+		return
+	end
+	local lift = 1
+	if db.powerBarEnabled ~= false and db.powerBarFollowEssential ~= false then
+		local hostH = PlainNumber(Skin.PowerBarHostHeight) or 0
+		if hostH > 0 then
+			lift = Pixel.Snap(hostH) + 1
+		end
+	end
+	pcall(function()
+		viewer:ClearAllPoints()
+		viewer:SetPoint("BOTTOMLEFT", essential, "TOPLEFT", 0, lift)
+		viewer:SetPoint("BOTTOMRIGHT", essential, "TOPRIGHT", 0, lift)
+	end)
+end
+
 function Skin.ApplyBuffBars()
 	local last = { bars = 0, shown = 0, width = -1, height = -1, err = nil }
 	GCDM._buffBarLastApply = last
@@ -125,32 +194,21 @@ function Skin.ApplyBuffBars()
 		for i = 1, #bars do
 			local frame = bars[i]
 			if frame and frame.Bar then
-				if not frame.GCDMShowHooked then
-					frame.GCDMShowHooked = true
-					frame:HookScript("OnShow", function()
-						if Skin.QueueBuffBarRelayout then Skin.QueueBuffBarRelayout() end
-					end)
-				end
 				StyleOneBar(frame, db, width, height)
-				local active = false
-				if frame.IsActive then
-					local okA, a = pcall(frame.IsActive, frame)
-					active = okA and a == true
+				if IsBarShownOrActive(frame) then
+					shown[#shown + 1] = frame
 				end
-				local shownOk, isShown = pcall(frame.IsShown, frame)
-				if (shownOk and isShown) or active then shown[#shown + 1] = frame end
 			end
 		end
 		table.sort(shown, function(a, b)
-			local ai = type(a.layoutIndex) == "number" and a.layoutIndex or 0
-			local bi = type(b.layoutIndex) == "number" and b.layoutIndex or 0
-			return ai < bi
+			return LayoutIndexOf(a) < LayoutIndexOf(b)
 		end)
 		last.shown = #shown
 		local count = #shown
 		local containerH = count > 0 and ((count * height) + ((count - 1) * spacing)) or height
 		if viewer.SetAlpha then pcall(viewer.SetAlpha, viewer, 1) end
 		pcall(viewer.SetSize, viewer, width, Pixel.Snap(containerH))
+		Skin.PlaceBuffBarViewer(db)
 		for i = 1, count do
 			local frame = shown[i]
 			local y = -((i - 1) * (height + spacing))

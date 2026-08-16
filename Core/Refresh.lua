@@ -5,6 +5,31 @@ local callbacks = {}
 local ordered = {}
 local seq = 0
 
+-- Infrastructure that the rest of the pipeline reads from; not user-switchable.
+local ALWAYS_ON = {
+	["Pixel"] = true,
+	["ViewerRegistry"] = true,
+	["Skin.Media"] = true,
+	["EditMode.Setup"] = true,
+}
+
+-- Modules that hook or restyle Blizzard CDM frames. Safe mode turns them off so
+-- a taint source can be bisected across reloads.
+local INVASIVE = {
+	"Skin.Layout",
+	"Skin.Position",
+	"Skin.Size",
+	"Skin.Icon",
+	"Skin.Border",
+	"Skin.Text",
+	"Skin.Keybinds",
+	"Skin.PressOverlay",
+	"Skin.Glow",
+	"Skin.BuffBar",
+	"Skin.AuraSounds",
+	"Skin.Debug",
+}
+
 local function InsertSorted(entry)
 	for i = 1, #ordered do
 		local cur = ordered[i]
@@ -55,12 +80,65 @@ function GCDM:UnregisterRefreshCallback(id)
 	end
 end
 
+--- Refresh module ids in run order, infrastructure ones excluded.
+function GCDM:GetRefreshModuleIDs()
+	local ids = {}
+	for i = 1, #ordered do
+		local id = ordered[i].id
+		if not ALWAYS_ON[id] then
+			ids[#ids + 1] = id
+		end
+	end
+	return ids
+end
+
+function GCDM:IsModuleEnabled(id)
+	if ALWAYS_ON[id] then
+		return true
+	end
+	local db = self:GetDB()
+	local disabled = db and db.disabledModules
+	return not (disabled and disabled[id])
+end
+
+--- Disabled modules stop refreshing immediately; hooks they already installed
+--- only go away on /reload.
+function GCDM:SetModuleEnabled(id, enabled)
+	local db = self:GetDB()
+	if not db or ALWAYS_ON[id] then
+		return
+	end
+	db.disabledModules = db.disabledModules or {}
+	db.disabledModules[id] = (not enabled) or nil
+end
+
+function GCDM:GetSafeModeModuleIDs()
+	return INVASIVE
+end
+
+function GCDM:SetSafeMode(on)
+	for i = 1, #INVASIVE do
+		self:SetModuleEnabled(INVASIVE[i], not on)
+	end
+end
+
+function GCDM:IsSafeMode()
+	for i = 1, #INVASIVE do
+		if self:IsModuleEnabled(INVASIVE[i]) then
+			return false
+		end
+	end
+	return true
+end
+
 function GCDM:Refresh(scope)
 	scope = scope or GCDM.CONST.REFRESH.ALL
 	for i = 1, #ordered do
 		local entry = ordered[i]
 		if not entry.scopes or entry.scopes[scope] or scope == GCDM.CONST.REFRESH.ALL then
-			entry.callback(scope)
+			if self:IsModuleEnabled(entry.id) then
+				entry.callback(scope)
+			end
 		end
 	end
 end
