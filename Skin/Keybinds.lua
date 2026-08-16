@@ -17,22 +17,39 @@ local BAR_CHANGE = {
 	UPDATE_VEHICLE_ACTIONBAR = true,
 }
 
+--- Spell ids coming off CDM frames can be secret; carrying one into keybinds or
+--- sound rules would spread that into everything comparing it.
+local function PlainSpellID(value)
+	if type(value) ~= "number" then
+		return nil
+	end
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	return value
+end
+
 function Skin.GetFrameSpellID(frame)
 	if not frame then
 		return nil
 	end
-	if type(frame.spellID) == "number" then
-		return frame.spellID
+	local direct = PlainSpellID(frame.spellID)
+	if direct then
+		return direct
 	end
 	local info = frame.cooldownInfo
-	if info and type(info.spellID) == "number" then
-		return info.spellID
+	local fromInfo = info and PlainSpellID(info.spellID)
+	if fromInfo then
+		return fromInfo
 	end
-	local cdID = frame.cooldownID
+	local cdID = PlainSpellID(frame.cooldownID)
 	if cdID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
 		local ok, data = pcall(C_CooldownViewer.GetCooldownViewerCooldownInfo, cdID)
-		if ok and data and type(data.spellID) == "number" then
-			return data.spellID
+		if ok and data then
+			return PlainSpellID(data.spellID)
 		end
 	end
 	return nil
