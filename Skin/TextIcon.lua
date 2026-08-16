@@ -19,7 +19,7 @@ local function GetCountdownFontString(cd)
 	return nil
 end
 
-local function GetStackFontString(frame)
+function Skin.GetStackFontString(frame)
 	if not frame then return nil end
 	local charge = frame.ChargeCount
 	if charge and charge.Current then return charge.Current, charge end
@@ -39,6 +39,8 @@ local function GetStackFontString(frame)
 	return nil
 end
 
+Skin.GetStackFontString = GetStackFontString
+
 local function StyleCooldownText(frame, style, viewerKey)
 	local cd = frame.Cooldown
 	if not cd or not style then return end
@@ -53,19 +55,6 @@ local function StyleCooldownText(frame, style, viewerKey)
 	if fs.SetDrawLayer then fs:SetDrawLayer("OVERLAY", 7) end
 	Skin.TextStyleFontString(fs, fontObj, style.cooldownTextColor, Skin.TextNormalizePoint(style.cooldownTextPoint, "CENTER"),
 		style.cooldownTextOffsetX or 0, style.cooldownTextOffsetY or 0, frame, path, size, outline)
-	if not cd.GCDMTextHooked then
-		cd.GCDMTextHooked = true
-		cd:HookScript("OnShow", function(self)
-			local parent = self:GetParent()
-			local profile = GCDM:GetDB()
-			if parent and profile and profile.enabled then
-				local key = Skin.GetViewerKeyForFrame(parent)
-				if key and ICON_VIEWERS[key] then
-					StyleCooldownText(parent, Skin.GetTextStyle(profile, key), key)
-				end
-			end
-		end)
-	end
 end
 
 local function RaiseStackAboveSwipe(frame, fs, anchor)
@@ -104,20 +93,6 @@ function Skin.StyleStackText(frame, style, viewerKey)
 	Skin.TextStyleFontString(fs, fontObj, style.stackTextColor, Skin.TextNormalizePoint(style.stackTextPoint, "BOTTOMRIGHT"),
 		style.stackTextOffsetX or 0, style.stackTextOffsetY or 0, anchor or frame, path, size, outline)
 	RaiseStackAboveSwipe(frame, fs, anchor)
-	if not fs.GCDMStackHooked then
-		fs.GCDMStackHooked = true
-		if fs.HookScript then
-			fs:HookScript("OnShow", function()
-				local profile = GCDM:GetDB()
-				if profile and profile.enabled then
-					local key = Skin.GetViewerKeyForFrame(frame)
-					if key and ICON_VIEWERS[key] then
-						Skin.StyleStackText(frame, Skin.GetTextStyle(profile, key), key)
-					end
-				end
-			end)
-		end
-	end
 end
 
 local function EnsureKeybindFontString(frame)

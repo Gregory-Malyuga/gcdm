@@ -17,10 +17,11 @@ function ns.Tests.Behavior.LayoutUtility(h, ctx)
 			if f.GCDMParked then
 				parkedShown = parkedShown + 1
 			end
-			if f.GCDMAnchor and not f.GCDMParked then
+			if not f.GCDMParked then
+				local x = Skin.FrameAnchorX(f)
 				h.check(
-					"UTIL placed icon has GCDMAnchor",
-					type(f.GCDMAnchor) == "table" and f.GCDMAnchor[4] ~= park,
+					"UTIL placed icon is anchored away from the park slot",
+					x ~= park,
 					tostring(f.layoutIndex)
 				)
 			end

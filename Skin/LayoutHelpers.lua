@@ -75,96 +75,37 @@ local function InCombat()
 	return InCombatLockdown and InCombatLockdown()
 end
 
-local function InstallAnchorSnapBack(frame)
-	if frame.GCDMSnapHooked then return end
-	frame.GCDMSnapHooked = true
-	hooksecurefunc(frame, "SetPoint", function(self)
-		if self.GCDMParked or self.GCDMApplyingAnchor then return end
-		if InCombat() and not Skin.LayoutIsBuffViewer(Skin.LayoutViewerOf(self)) then return end
-		if Skin.LayoutShouldDefer() then self.GCDMAnchor = nil return end
-		local a = self.GCDMAnchor
-		if not a then return end
-		self.GCDMApplyingAnchor = true
-		pcall(function()
-			if not InCombat() then self:ClearAllPoints() end
-			self:SetPoint(a[1], a[2], a[3], a[4], a[5])
-		end)
-		self.GCDMApplyingAnchor = false
-	end)
-end
-
-function Skin.LayoutEnsureIconLifecycleHooks(frame)
-	if not frame or frame.GCDMIconLifeHooked then return end
-	frame.GCDMIconLifeHooked = true
-	frame:HookScript("OnShow", function(self)
-		if Skin.LayoutShouldDefer() then
-			self.GCDMAnchor, self.GCDMParked = nil, false
-			pcall(self.SetAlpha, self, 1)
-			return
-		end
-		local viewer = Skin.LayoutViewerOf(self)
-		self.GCDMParked = false
-		pcall(self.SetAlpha, self, 1)
-		if Skin.LayoutIsBuffViewer(viewer) then
-			if Skin.QueueBuffCenterLayout then Skin.QueueBuffCenterLayout(viewer) end
-		else
-			self.GCDMAnchor = nil
-			if Skin.QueuePostBlizzardLayout then Skin.QueuePostBlizzardLayout() end
-		end
-	end)
-	frame:HookScript("OnHide", function(self)
-		if Skin.LayoutShouldDefer() then
-			self.GCDMAnchor, self.GCDMParked = nil, false
-			return
-		end
-		local viewer = Skin.LayoutViewerOf(self)
-		if Skin.LayoutIsBuffViewer(viewer) then
-			self.GCDMParked = false
-			if Skin.QueueBuffCenterLayout then Skin.QueueBuffCenterLayout(viewer) end
-		else
-			self.GCDMAnchor = nil
-			if Skin.QueuePostBlizzardLayout then Skin.QueuePostBlizzardLayout() end
-		end
-	end)
-end
+-- Icon placement used to defend itself with a SetPoint hook plus OnShow/OnHide
+-- script hooks on each item frame. All three run inside Blizzard's own layout
+-- and refresh, which then continues tainted, so placement is re-applied from
+-- the next CDMWatch pass instead of fighting Blizzard inside its call stack.
 
 function Skin.LayoutPlaceIcon(frame, viewer, x, y, w, h, row, opts)
 	opts = opts or {}
-	Skin.LayoutEnsureIconLifecycleHooks(frame)
 	frame.GCDMParked, frame.GCDMRow = false, row
 	pcall(frame.SetAlpha, frame, 1)
 	if not opts.keepSize and w and h then pcall(frame.SetSize, frame, w, h) end
-	frame.GCDMApplyingAnchor = true
 	pcall(function()
 		if not InCombat() then frame:ClearAllPoints() end
 		frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", x, y)
 	end)
-	frame.GCDMApplyingAnchor = false
-	frame.GCDMAnchor = { "TOPLEFT", viewer, "TOPLEFT", x, y }
-	InstallAnchorSnapBack(frame)
 end
 
 function Skin.LayoutParkEmptyIcon(frame, viewer)
 	if not frame then return end
-	Skin.LayoutEnsureIconLifecycleHooks(frame)
 	if Skin.LayoutIsBuffViewer(viewer) then
-		frame.GCDMParked, frame.GCDMAnchor = false, nil
+		frame.GCDMParked = false
 		return
 	end
-	InstallAnchorSnapBack(frame)
 	frame.GCDMParked = true
 	if InCombat() then
-		frame.GCDMAnchor = nil
 		pcall(frame.SetAlpha, frame, 0)
 		return
 	end
-	frame.GCDMAnchor = nil
-	frame.GCDMApplyingAnchor = true
 	pcall(function()
 		frame:ClearAllPoints()
 		if viewer then frame:SetPoint("TOPLEFT", viewer, "TOPLEFT", Skin.PARK_OFFSET or -10000, 0) end
 	end)
-	frame.GCDMApplyingAnchor = false
 	pcall(frame.SetAlpha, frame, 0)
 end
 
@@ -174,7 +115,6 @@ function Skin.LayoutCollectShownIcons(viewer)
 	for i = 1, #raw do
 		local frame = raw[i]
 		if frame then
-			Skin.LayoutEnsureIconLifecycleHooks(frame)
 			if Skin.LayoutIsIconActive(frame) then
 				out[#out + 1] = frame
 			else

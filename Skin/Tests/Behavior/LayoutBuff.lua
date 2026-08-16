@@ -21,15 +21,15 @@ function ns.Tests.Behavior.LayoutBuff(h, ctx)
 			)
 			h.check(
 				"BUFF shown not at park X",
-				not (f.GCDMAnchor and f.GCDMAnchor[4] == park),
+				Skin.FrameAnchorX(f) ~= park,
 				tostring(f.layoutIndex)
 			)
 		elseif f and (f.GCDMParked or not f:IsShown()) then
 			parkedN = parkedN + 1
 			if f.GCDMParked then
 				h.check(
-					"BUFF parked has nil place-anchor or park flag",
-					f.GCDMParked == true and (f.GCDMAnchor == nil or f.GCDMAnchor[4] == park),
+					"BUFF parked icon sits at the park slot or is invisible",
+					Skin.FrameAnchorX(f) == park or (f:GetAlpha() or 1) <= 0.01,
 					tostring(f.layoutIndex)
 				)
 			end

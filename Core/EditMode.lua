@@ -54,15 +54,6 @@ local function ClearViewerPositionSnaps()
 		if viewer then
 			viewer.GCDMViewerAnchor = nil
 			viewer.GCDMViewerAnchor2 = nil
-			local icons = Skin and Skin.CollectIconFrames and Skin.CollectIconFrames(viewer)
-			if icons then
-				for j = 1, #icons do
-					local frame = icons[j]
-					if frame then
-						frame.GCDMApplyingAnchor = false
-					end
-				end
-			end
 		end
 	end
 end

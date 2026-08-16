@@ -23,6 +23,7 @@ Core\EditModeHooks.lua
 Core\EditMode.lua
 Core\ViewerRegistry.lua
 Core\CDMContent.lua
+Core\CDMWatch.lua
 Core\ProfileShareCodec.lua
 Core\ProfileShare.lua
 Core\MigrationsText.lua
