@@ -4,6 +4,7 @@ function ns.BuildPowerBarArgsMore(ctx)
 	local db = ctx.db
 	local L = ctx.L
 	local addon = ctx.addon
+	local OUTLINE_VALUES = ctx.OUTLINE_VALUES
 	return {
 powerBarFont = {
 	type = "select",
