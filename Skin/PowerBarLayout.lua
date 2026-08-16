@@ -42,6 +42,8 @@ function PowerBarLayout.EnsureHost()
 	if host then
 		return host
 	end
+	-- Named frame must always exist: Edit Mode (and older layouts) may SetPoint
+	-- BuffBarCooldownViewer relative to "GCDM_PowerBarHost". Missing name → LUA_WARNING.
 	host = CreateFrame("Frame", "GCDM_PowerBarHost", UIParent)
 	host:SetSize(200, 20)
 	host:SetFrameStrata("MEDIUM")
