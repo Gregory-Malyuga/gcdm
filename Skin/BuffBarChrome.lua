@@ -163,10 +163,11 @@ function Skin.ApplyBuffBarOwnedBorder(owner, key, parent, db)
 	local c = db.borderColor or { r = 0, g = 0, b = 0, a = 1 }
 	local border = owner[key]
 	if not border then
-		border = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+		-- Own the border under the item frame, not under Blizzard's StatusBar/Icon.
+		border = CreateFrame("Frame", nil, owner, "BackdropTemplate")
 		owner[key] = border
-	elseif border:GetParent() ~= parent then
-		border:SetParent(parent)
+	elseif border:GetParent() ~= owner then
+		border:SetParent(owner)
 	end
 	if size <= 0 then border:Hide() return end
 	border:SetFrameLevel((parent:GetFrameLevel() or 0) + 5)
