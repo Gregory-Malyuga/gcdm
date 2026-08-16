@@ -43,7 +43,6 @@ end
 GCDM._IsEditModeUIOpen = IsEditModeUIOpen
 
 local function ClearViewerPositionSnaps()
-	local Skin = GCDM.Skin
 	local registry = GCDM.ViewerRegistry
 	if not registry then
 		return

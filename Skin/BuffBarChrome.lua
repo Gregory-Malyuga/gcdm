@@ -27,6 +27,42 @@ local function SyncSkinBarValues(frame, bar)
 	end
 end
 
+-- The skinned fill used to follow Blizzard's bar through SetValue and
+-- SetMinMaxValues hooks. Blizzard drives those from the buff bar OnUpdate, the
+-- same handler that compares secret pandemic values, so the hooks tainted it
+-- every frame. We mirror the value from our own OnUpdate instead, and stop as
+-- soon as no skinned bar is visible.
+local valueDriver
+
+local function SyncAllSkinBars()
+	if not Skin.ForEachBuffBar then return false end
+	local active = false
+	Skin.ForEachBuffBar(function(frame)
+		local skin = frame.GCDMSkinBar
+		if skin and skin:IsShown() and frame.Bar then
+			SyncSkinBarValues(frame, frame.Bar)
+			active = true
+		end
+	end)
+	return active
+end
+
+local function StartValueDriver()
+	if not valueDriver then
+		valueDriver = CreateFrame("Frame")
+	end
+	if valueDriver:GetScript("OnUpdate") then return end
+	valueDriver:SetScript("OnUpdate", function(self)
+		if not SyncAllSkinBars() then
+			self:SetScript("OnUpdate", nil)
+		end
+	end)
+end
+
+function Skin.StopBuffBarValueDriver()
+	if valueDriver then valueDriver:SetScript("OnUpdate", nil) end
+end
+
 local function HideBlizzardBarArt(bar)
 	if not bar then return end
 	local sbTex = bar.GetStatusBarTexture and bar:GetStatusBarTexture()
@@ -70,34 +106,8 @@ function Skin.ApplyBuffBarSolid(frame, bar, db)
 	SyncSkinBarValues(frame, bar)
 	skin:Show()
 	skin:SetAlpha(1)
-	if not bar.GCDMValueHooked then
-		bar.GCDMValueHooked = true
-		local function sync(self)
-			local parent = self:GetParent()
-			if parent and parent.GCDMSkinBar and parent.GCDMSkinBar:IsShown() then SyncSkinBarValues(parent, self) end
-		end
-		hooksecurefunc(bar, "SetValue", sync)
-		hooksecurefunc(bar, "SetMinMaxValues", sync)
-	end
+	StartValueDriver()
 	if frame.GCDMBarBackground then frame.GCDMBarBackground:Hide() end
-end
-
-local function SuppressPip(pip)
-	if not pip or pip.GCDMPipGuarded then return end
-	pip.GCDMPipGuarded = true
-	local function lockAlpha(self)
-		if self.GCDMPipLock then return end
-		local db = GCDM:GetDB()
-		if not db or Skin.BuffBarResolveStyle(db) ~= "solid" then return end
-		self.GCDMPipLock = true
-		self:SetAlpha(0)
-		self.GCDMPipLock = false
-	end
-	hooksecurefunc(pip, "Show", lockAlpha)
-	hooksecurefunc(pip, "SetShown", function(self, shown) if shown then lockAlpha(self) end end)
-	hooksecurefunc(pip, "SetAlpha", function(self, alpha)
-		if not self.GCDMPipLock and type(alpha) == "number" and alpha > 0 then lockAlpha(self) end
-	end)
 end
 
 function Skin.HideBuffBarPipAndExtras(frame, style)
@@ -106,7 +116,9 @@ function Skin.HideBuffBarPipAndExtras(frame, style)
 	local bar = frame.Bar
 	if not bar then return end
 	if bar.BarBG then bar.BarBG:SetAlpha(0) end
-	if bar.Pip then SuppressPip(bar.Pip) bar.Pip:SetAlpha(0) end
+	-- Pip alpha is re-zeroed by each styling pass rather than by hooks on its
+	-- Show/SetAlpha, which would run inside Blizzard's bar update.
+	if bar.Pip then bar.Pip:SetAlpha(0) end
 end
 
 function Skin.ApplyBuffBarBlizzard(frame, bar)

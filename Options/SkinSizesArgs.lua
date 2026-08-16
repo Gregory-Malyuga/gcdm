@@ -4,6 +4,10 @@ function ns.BuildSkinSizesArgs(ctx)
 	local db = ctx.db
 	local L = ctx.L
 	local addon = ctx.addon
+	local function setSize(tbl, key, value)
+		tbl[key] = value
+		ctx.RefreshSkin()
+	end
 	return {
 essW = {
 	type = "range",

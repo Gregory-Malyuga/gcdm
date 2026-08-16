@@ -19,7 +19,7 @@ local function GetCountdownFontString(cd)
 	return nil
 end
 
-function Skin.GetStackFontString(frame)
+local function GetStackFontString(frame)
 	if not frame then return nil end
 	local charge = frame.ChargeCount
 	if charge and charge.Current then return charge.Current, charge end
