@@ -26,27 +26,46 @@ end
 local function SyncSkinBarValues(frame, bar)
 	local skin = frame.GCDMSkinBar
 	if not skin or not bar then return end
+
+	-- Blizzard's buff StatusBar often carries secret min/max/value. We may SetValue
+	-- those onto our own bar, but must never compare or lerp them (that throws),
+	-- and must never replace a secret with 0 — that left the digit visible and the
+	-- fill empty ("цифра есть, полосы нет").
 	local minV, maxV = 0, 1
+	local minMaxPlain = true
 	if bar.GetMinMaxValues then
 		local ok, a, b = pcall(bar.GetMinMaxValues, bar)
 		if ok then
-			minV = PlainNumber(a) or 0
-			maxV = PlainNumber(b) or 1
+			local pa, pb = PlainNumber(a), PlainNumber(b)
+			if pa and pb then
+				minV, maxV = pa, pb
+			else
+				pcall(skin.SetMinMaxValues, skin, a, b)
+				minMaxPlain = false
+			end
 		end
 	end
-	skin:SetMinMaxValues(minV, maxV)
-	local value = 0
-	if bar.GetValue then
-		local ok, v = pcall(bar.GetValue, bar)
-		if ok then
-			value = PlainNumber(v) or 0
+	if minMaxPlain then
+		skin:SetMinMaxValues(minV, maxV)
+	end
+
+	if not bar.GetValue then
+		return
+	end
+	local ok, v = pcall(bar.GetValue, bar)
+	if not ok or v == nil then
+		return
+	end
+	local plain = PlainNumber(v)
+	if plain then
+		if Skin.SmoothBarSetValue then
+			Skin.SmoothBarSetValue(skin, plain, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled(GCDM:GetDB()))
+		else
+			skin:SetValue(plain)
 		end
+		return
 	end
-	if Skin.SmoothBarSetValue then
-		Skin.SmoothBarSetValue(skin, value, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled(GCDM:GetDB()))
-	else
-		skin:SetValue(value)
-	end
+	pcall(skin.SetValue, skin, v)
 end
 
 -- The skinned fill used to follow Blizzard's bar through SetValue and
@@ -103,14 +122,16 @@ function Skin.ApplyBuffBarSolid(frame, bar, db)
 	HideBlizzardBarArt(bar)
 	local skin = frame.GCDMSkinBar
 	if not skin then
-		-- Parent to the item frame, never to Blizzard's StatusBar: a child on the
-		-- status bar sits inside the same update path that compares secret durations.
-		skin = CreateFrame("StatusBar", nil, frame)
-		skin:SetFrameLevel(math.max(1, (bar:GetFrameLevel() or 0) - 1))
+		-- Child of Blizzard's StatusBar so Name/Duration (also on the bar) stay above
+		-- the fill. We only SetValue from our own OnUpdate — no SetValue hooks.
+		skin = CreateFrame("StatusBar", nil, bar)
 		frame.GCDMSkinBar = skin
 		frame.GCDMSkinBarBG = skin:CreateTexture(nil, "BACKGROUND", nil, -1)
 		frame.GCDMSkinBarBG:SetAllPoints(skin)
+	elseif skin:GetParent() ~= bar then
+		skin:SetParent(bar)
 	end
+	skin:SetFrameLevel(math.max(1, (bar:GetFrameLevel() or 0)))
 	skin:ClearAllPoints()
 	skin:SetAllPoints(bar)
 	skin:SetStatusBarTexture(tex)

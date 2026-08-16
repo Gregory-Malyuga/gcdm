@@ -57,10 +57,8 @@ local function ApplyPowerBars()
 	local ok, err = pcall(function()
 		local db = GCDM:GetDB()
 		if not db or not db.enabled or db.powerBarEnabled == false then
-			local h = Layout.GetHost()
-			if h then
-				h:Hide()
-			end
+			local h = Layout.EnsureHost()
+			h:Hide()
 			Skin.PowerBarHostHeight = 0
 			if Skin.PlaceBuffBarViewer then
 				Skin.PlaceBuffBarViewer(db)
