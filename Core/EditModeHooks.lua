@@ -47,6 +47,26 @@ function GCDM._SetupEditModeHooks()
 	EventRegistry:RegisterCallback("CooldownViewerSettings.OnShow", OnSettingsShown, GCDM)
 	EventRegistry:RegisterCallback("CooldownViewerSettings.OnHide", OnSettingsHidden, GCDM)
 
+	-- Saved Edit Mode layouts may still name GCDM_PowerBarHost as BuffBar's
+	-- relative frame. After Blizzard reapplies that, put BuffBar back on Essential
+	-- (outside Edit Mode) so OnUnitAura is not chained to an addon frame.
+	if not GCDM._editModeLayoutsWatcher then
+		local watcher = CreateFrame("Frame")
+		GCDM._editModeLayoutsWatcher = watcher
+		watcher:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+		watcher:SetScript("OnEvent", function()
+			C_Timer.After(0, function()
+				if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
+					return
+				end
+				local Skin = GCDM.Skin
+				if Skin and Skin.PlaceBuffBarViewer then
+					Skin.PlaceBuffBarViewer(GCDM.GetDB and GCDM:GetDB())
+				end
+			end)
+		end)
+	end
+
 	-- Edit Mode may already be open when we load.
 	if GCDM._IsEditModeUIOpen and GCDM._IsEditModeUIOpen() then
 		GCDM._SetEditMode(true)

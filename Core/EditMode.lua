@@ -128,8 +128,9 @@ function GCDM:ShouldDeferCDMLayout()
 	return self.isEditModeActive or IsEditModeUIOpen()
 end
 
+--- Edit Mode or CDM settings: do not fight Blizzard icon placement / save.
 function GCDM:ShouldDeferIconLayout()
-	return false
+	return self:ShouldDeferCDMLayout() or self:IsCooldownViewerSettingsOpen()
 end
 
 GCDM:RegisterRefreshCallback("EditMode.Setup", function()

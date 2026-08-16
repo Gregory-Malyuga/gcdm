@@ -87,12 +87,22 @@ function Content:GetProvider()
 end
 
 function Content:GetLayoutManager()
+	local provider = self:GetProvider()
+	if provider and provider.GetLayoutManager then
+		local ok, manager = pcall(provider.GetLayoutManager, provider)
+		if ok and manager then
+			return manager
+		end
+	end
 	local settings = Settings()
 	if not settings or not settings.GetLayoutManager then
 		return nil
 	end
 	local ok, manager = pcall(settings.GetLayoutManager, settings)
-	if not ok then
+	if not ok or not manager then
+		return nil
+	end
+	if manager.IsLoaded and not manager:IsLoaded() then
 		return nil
 	end
 	return manager
@@ -189,6 +199,20 @@ local function StatusFailed(status)
 end
 
 function Content:Save()
+	local settings = Settings()
+	-- Same path Blizzard's CDM settings UI uses after a reorder / category move.
+	if settings and type(settings.CheckSaveCurrentLayout) == "function" then
+		local ok = pcall(settings.CheckSaveCurrentLayout, settings)
+		if ok then
+			return
+		end
+	end
+	if settings and type(settings.SaveCurrentLayout) == "function" then
+		local ok = pcall(settings.SaveCurrentLayout, settings)
+		if ok then
+			return
+		end
+	end
 	local manager = self:GetLayoutManager()
 	if manager and manager.SaveLayouts then
 		pcall(manager.SaveLayouts, manager)

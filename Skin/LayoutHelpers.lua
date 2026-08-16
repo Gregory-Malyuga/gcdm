@@ -15,7 +15,12 @@ function Skin.LayoutViewerOf(frame)
 end
 
 function Skin.LayoutShouldDefer()
-	if GCDM.ShouldDeferIconLayout then return GCDM:ShouldDeferIconLayout() end
+	if GCDM.ShouldDeferIconLayout then
+		return GCDM:ShouldDeferIconLayout()
+	end
+	if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
+		return true
+	end
 	return GCDM.IsCooldownViewerSettingsOpen and GCDM:IsCooldownViewerSettingsOpen()
 end
 

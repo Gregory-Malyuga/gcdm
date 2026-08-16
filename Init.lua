@@ -2,6 +2,17 @@
 -- See LICENSE in the addon root. Redistribution / rebranding prohibited.
 local ADDON_NAME, ns = ...
 
+-- Edit Mode may SetPoint BuffBarCooldownViewer to "GCDM_PowerBarHost" from an older
+-- saved layout before Skin.PowerBar runs. Missing named frame → LUA_WARNING.
+do
+	local host = _G.GCDM_PowerBarHost
+	if not host then
+		host = CreateFrame("Frame", "GCDM_PowerBarHost", UIParent)
+		host:SetSize(1, 1)
+		host:Hide()
+	end
+end
+
 local AceAddon = LibStub("AceAddon-3.0")
 local GCDM = AceAddon:NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0")
 
@@ -10,11 +21,15 @@ _G.GCDM = GCDM
 
 GCDM.ADDON_NAME = ADDON_NAME
 GCDM.VERSION = "0.1.2"
-GCDM.BUILD = "20260816-c22"
+GCDM.BUILD = "20260816-c24"
 GCDM.LICENSE = "Proprietary — All Rights Reserved"
 
 function GCDM:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("GCDMDB", ns.defaults, true)
+	-- Flesh out the early GCDM_PowerBarHost stub before Edit Mode UpdateSystems.
+	if self.Skin and self.Skin.PowerBarLayout and self.Skin.PowerBarLayout.EnsureHost then
+		self.Skin.PowerBarLayout.EnsureHost()
+	end
 	if self.Skin and self.Skin.InitSharedMedia then
 		self.Skin.InitSharedMedia()
 	end
