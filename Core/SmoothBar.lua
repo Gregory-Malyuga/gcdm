@@ -42,7 +42,9 @@ local function EnsureDriver(bar)
 	if driver then
 		return driver
 	end
-	driver = CreateFrame("Frame", nil, bar)
+	-- Orphan frame: parenting the driver to a Blizzard StatusBar put an addon
+	-- child inside the same tree Blizzard walks while handling secret values.
+	driver = CreateFrame("Frame")
 	drivers[bar] = driver
 	return driver
 end

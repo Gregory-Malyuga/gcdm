@@ -96,12 +96,29 @@ end
 local function IsFrameActive(frame)
 	if frame.IsActive then
 		local ok, active = pcall(frame.IsActive, frame)
-		if ok and active ~= nil then
-			return active == true
+		if ok then
+			if issecretvalue and issecretvalue(active) then
+				-- fall through to IsShown
+			elseif canaccessvalue and not canaccessvalue(active) then
+				-- fall through to IsShown
+			elseif active == true then
+				return true
+			elseif active == false then
+				return false
+			end
 		end
 	end
 	local ok, shown = pcall(frame.IsShown, frame)
-	return ok and shown == true
+	if not ok then
+		return false
+	end
+	if issecretvalue and issecretvalue(shown) then
+		return false
+	end
+	if canaccessvalue and not canaccessvalue(shown) then
+		return false
+	end
+	return shown == true
 end
 
 --- Stack text can be a secret string; then stack rules simply stay silent.

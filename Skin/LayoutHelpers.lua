@@ -19,18 +19,33 @@ function Skin.LayoutShouldDefer()
 	return GCDM.IsCooldownViewerSettingsOpen and GCDM:IsCooldownViewerSettingsOpen()
 end
 
+local function PlainNumber(value)
+	if type(value) ~= "number" then
+		return nil
+	end
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	return value
+end
+
 local function LayoutIndexOf(frame)
-	local idx = frame and frame.layoutIndex
-	return type(idx) == "number" and idx or 0
+	return PlainNumber(frame and frame.layoutIndex) or 0
 end
 
 function Skin.LayoutSortIconsStable(icons)
 	table.sort(icons, function(a, b)
 		local ai, bi = LayoutIndexOf(a), LayoutIndexOf(b)
 		if ai ~= bi then return ai < bi end
-		local ay, by = a:GetTop() or 0, b:GetTop() or 0
+		local ay = PlainNumber(a.GetTop and a:GetTop()) or 0
+		local by = PlainNumber(b.GetTop and b:GetTop()) or 0
 		if math.abs(ay - by) > 1 then return ay > by end
-		return (a:GetLeft() or 0) < (b:GetLeft() or 0)
+		local ax = PlainNumber(a.GetLeft and a:GetLeft()) or 0
+		local bx = PlainNumber(b.GetLeft and b:GetLeft()) or 0
+		return ax < bx
 	end)
 end
 

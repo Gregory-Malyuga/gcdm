@@ -48,6 +48,53 @@ Skin.HideBuffBarPandemic = HideBuffBarPandemic
 
 local StyleOneBar
 
+local function PlainNumber(value)
+	if type(value) ~= "number" then
+		return nil
+	end
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	return value
+end
+
+local function PlainBool(ok, value)
+	if not ok then
+		return nil
+	end
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	if value == true then
+		return true
+	end
+	if value == false then
+		return false
+	end
+	return nil
+end
+
+local function LayoutIndexOf(frame)
+	return PlainNumber(frame and frame.layoutIndex) or 0
+end
+
+local function IsBarShownOrActive(frame)
+	if frame.IsActive then
+		local active = PlainBool(pcall(frame.IsActive, frame))
+		if active == true then
+			return true
+		end
+	end
+	local shown = PlainBool(pcall(frame.IsShown, frame))
+	return shown == true
+end
+
 -- Bar size used to be guarded by SetWidth/SetHeight/SetSize hooks that fought
 -- Blizzard inside its own layout pass. The size is re-applied by the next
 -- CDMWatch pass instead.
@@ -87,6 +134,46 @@ end
 
 Skin.StyleOneBuffBar = StyleOneBar
 
+-- Keep BuffBarCooldownViewer on Essential (a Blizzard frame), never on GCDM_PowerBarHost.
+-- Anchoring the viewer to an addon frame made Blizzard's OnUnitAura continue tainted.
+function Skin.PlaceBuffBarViewer(db)
+	db = db or (GCDM.GetDB and GCDM:GetDB())
+	if not db or not db.enabled or db.buffBarEnabled == false then
+		return
+	end
+	if db.buffBarFollowEssential == false then
+		return
+	end
+	local cfg = db.viewerPos and db.viewerPos.buffBar
+	if cfg and cfg.enabled then
+		return
+	end
+	if InCombatLockdown and InCombatLockdown() then
+		return
+	end
+	if GCDM.ShouldDeferCDMLayout and GCDM:ShouldDeferCDMLayout() then
+		return
+	end
+	local registry = GCDM.ViewerRegistry
+	local viewer = registry and registry:BuffBar()
+	local essential = registry and registry:Essential()
+	if not viewer or not essential then
+		return
+	end
+	local lift = 1
+	if db.powerBarEnabled ~= false and db.powerBarFollowEssential ~= false then
+		local hostH = PlainNumber(Skin.PowerBarHostHeight) or 0
+		if hostH > 0 then
+			lift = Pixel.Snap(hostH) + 1
+		end
+	end
+	pcall(function()
+		viewer:ClearAllPoints()
+		viewer:SetPoint("BOTTOMLEFT", essential, "TOPLEFT", 0, lift)
+		viewer:SetPoint("BOTTOMRIGHT", essential, "TOPRIGHT", 0, lift)
+	end)
+end
+
 function Skin.ApplyBuffBars()
 	local last = { bars = 0, shown = 0, width = -1, height = -1, err = nil }
 	GCDM._buffBarLastApply = last
@@ -108,25 +195,20 @@ function Skin.ApplyBuffBars()
 			local frame = bars[i]
 			if frame and frame.Bar then
 				StyleOneBar(frame, db, width, height)
-				local active = false
-				if frame.IsActive then
-					local okA, a = pcall(frame.IsActive, frame)
-					active = okA and a == true
+				if IsBarShownOrActive(frame) then
+					shown[#shown + 1] = frame
 				end
-				local shownOk, isShown = pcall(frame.IsShown, frame)
-				if (shownOk and isShown) or active then shown[#shown + 1] = frame end
 			end
 		end
 		table.sort(shown, function(a, b)
-			local ai = type(a.layoutIndex) == "number" and a.layoutIndex or 0
-			local bi = type(b.layoutIndex) == "number" and b.layoutIndex or 0
-			return ai < bi
+			return LayoutIndexOf(a) < LayoutIndexOf(b)
 		end)
 		last.shown = #shown
 		local count = #shown
 		local containerH = count > 0 and ((count * height) + ((count - 1) * spacing)) or height
 		if viewer.SetAlpha then pcall(viewer.SetAlpha, viewer, 1) end
 		pcall(viewer.SetSize, viewer, width, Pixel.Snap(containerH))
+		Skin.PlaceBuffBarViewer(db)
 		for i = 1, count do
 			local frame = shown[i]
 			local y = -((i - 1) * (height + spacing))
