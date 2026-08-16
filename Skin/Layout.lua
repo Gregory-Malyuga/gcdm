@@ -31,9 +31,6 @@ end
 
 local function CombatBuffPass()
 	Skin.LayoutMarkCombatPending()
-	local registry = GCDM.ViewerRegistry
-	local buff = registry and registry.Buff and registry:Buff()
-	if buff then Skin.LayoutBuffIconsCentered(buff) end
 	if Skin.QueueBuffBarRelayout then Skin.QueueBuffBarRelayout() end
 end
 
@@ -51,8 +48,7 @@ local function ApplyLayout()
 		if essential then Skin.LayoutEssential(essential, db) end
 		local utility = registry:Utility()
 		if utility then Skin.LayoutSimpleRow(utility, db, db.sizeUtility) end
-		local buff = registry:Buff()
-		if buff then Skin.LayoutBuffIconsCentered(buff) end
+		-- BuffIconCooldownViewer: leave icon placement/centering to Blizzard GridLayout.
 		if Skin.QueueBuffBarRelayout then Skin.QueueBuffBarRelayout() end
 		if Skin.QueuePowerBarRelayout then Skin.QueuePowerBarRelayout() end
 		if Skin.RefreshKeybindTexts then Skin.RefreshKeybindTexts() end
