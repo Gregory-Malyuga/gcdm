@@ -5,8 +5,20 @@ local Skin = {}
 GCDM.Skin = Skin
 
 -- Parked empty CDM icons sit at this X so Blizzard RefreshLayout cannot reclaim them.
--- Protocol: GCDMParked=true, GCDMAnchor[4]=PARK_OFFSET, alpha 0; never snap SetPoint while parked.
+-- Protocol: GCDMParked=true, anchored at PARK_OFFSET, alpha 0.
 Skin.PARK_OFFSET = -10000
+
+--- X offset of a frame's first anchor, or nil when it has none.
+function Skin.FrameAnchorX(frame)
+	if not frame or not frame.GetPoint then
+		return nil
+	end
+	local ok, _, _, _, x = pcall(frame.GetPoint, frame, 1)
+	if not ok then
+		return nil
+	end
+	return x
+end
 
 --- When spacing is 0, adjacent icon borders would stack; overlap by borderSize (see LayoutGeometry).
 function Skin.BorderOverlap(db, gap)

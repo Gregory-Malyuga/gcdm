@@ -24,7 +24,7 @@ local function DumpViewerIcons(label, v)
 			local okA, a = pcall(frame.IsActive, frame)
 			active = okA and D.SafeStr(a) or "<err>"
 		end
-		local parked = frame.GCDMAnchor and frame.GCDMAnchor[4] == -10000
+		local parked = frame.GCDMParked == true
 		L(D.SafeFormat(
 			"  %s#%d shown=%s a=%.2f %.0fx%.0f left=%.1f idx=%s cd=%s active=%s parked=%s tex=%s",
 			label,

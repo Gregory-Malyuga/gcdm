@@ -52,7 +52,7 @@ function GCDM._DumpEditModeIconHelpers()
 			end
 		end
 		L(D.SafeFormat(
-			"  icon[%d] %s shown=%s active=%s size=%.1fx%.1f L=%.1f R=%.1f T=%.1f B=%.1f relXY=%.1f,%.1f alpha=%.2f parked=%s gAnchor=%s",
+			"  icon[%d] %s shown=%s active=%s size=%.1fx%.1f L=%.1f R=%.1f T=%.1f B=%.1f relXY=%.1f,%.1f alpha=%.2f parked=%s row=%s",
 			idx,
 			D.SafeStr(name),
 			shown,
@@ -67,7 +67,7 @@ function GCDM._DumpEditModeIconHelpers()
 			relY,
 			D.SafeNum(f.GetAlpha and f:GetAlpha()),
 			tostring(f.GCDMParked),
-			f.GCDMAnchor and "yes" or "no"
+			tostring(f.GCDMRow)
 		))
 		L("    points: " .. D.DescribePoints(f))
 	end

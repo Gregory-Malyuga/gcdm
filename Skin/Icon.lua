@@ -39,22 +39,11 @@ local function HidePandemicIndicator(frame)
 	if not db or db.hidePandemicIndicator == false then
 		return
 	end
+	-- Alpha survives Blizzard's own Show(), so zeroing it keeps the indicator
+	-- invisible without a hook that would run inside Blizzard's refresh.
 	if frame.PandemicIcon then
 		frame.PandemicIcon:SetAlpha(0)
 		frame.PandemicIcon:Hide()
-	end
-	if frame.ShowPandemicStateFrame and not frame.GCDMPandemicHooked then
-		frame.GCDMPandemicHooked = true
-		hooksecurefunc(frame, "ShowPandemicStateFrame", function(self)
-			local profile = GCDM:GetDB()
-			if not profile or profile.hidePandemicIndicator == false then
-				return
-			end
-			if self.PandemicIcon then
-				self.PandemicIcon:SetAlpha(0)
-				self.PandemicIcon:Hide()
-			end
-		end)
 	end
 end
 
@@ -95,31 +84,6 @@ local function ApplyIcon()
 	Skin.ForEachManagedIcon(ApplyOneIcon)
 end
 
-local function HookViewerAcquire(viewer)
-	if not viewer or viewer.GCDMAcquireHooked then
-		return
-	end
-	viewer.GCDMAcquireHooked = true
-	pcall(function()
-		hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, itemFrame)
-			local db = GCDM:GetDB()
-			if itemFrame and db and db.enabled then
-				ApplyOneIcon(itemFrame)
-				if Skin.ApplyText then
-					Skin.ApplyText(itemFrame)
-				end
-			end
-		end)
-	end)
-end
-
-local function HookViewers()
-	local registry = GCDM.ViewerRegistry
-	for i = 1, #GCDM.CONST.MANAGED_VIEWER_NAMES do
-		HookViewerAcquire(registry:Get(GCDM.CONST.MANAGED_VIEWER_NAMES[i]))
-	end
-end
-
 function Skin.CountIconMasks(frame)
 	local icon = Skin.GetIconTexture(frame)
 	if not icon or not icon.GetNumMaskTextures then
@@ -155,10 +119,12 @@ function Skin.DescribeRegions(frame)
 	return parts
 end
 
-GCDM:RegisterRefreshCallback("Skin.Icon", function()
-	HookViewers()
-	ApplyIcon()
-end, 55, {
+-- Freshly acquired item frames used to be styled from a hook on the viewer's
+-- OnAcquireItemFrame, which runs inside Blizzard's refresh and taints it. They
+-- are picked up by the next CDMWatch pass instead.
+GCDM:RegisterRefreshCallback("Skin.Icon", ApplyIcon, 55, {
 	GCDM.CONST.REFRESH.ALL,
 	GCDM.CONST.REFRESH.STYLE,
 })
+
+GCDM.CDMWatch:Register("Skin.Icon", ApplyIcon, 0.1)

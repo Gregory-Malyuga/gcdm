@@ -78,51 +78,14 @@ Skin.QueuePostBlizzardLayout = function()
 	end)
 end
 
-local function HookViewerRefreshLayout(viewer)
-	if not viewer then return end
-	if Skin.LayoutIsBuffViewer(viewer) then
-		if viewer.OnAcquireItemFrame and not viewer.GCDMLayoutAcquireHooked then
-			viewer.GCDMLayoutAcquireHooked = true
-			hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, itemFrame)
-				Skin.LayoutEnsureIconLifecycleHooks(itemFrame)
-				if itemFrame then itemFrame.GCDMParked = false end
-				Skin.QueueBuffCenterLayout(viewer)
-			end)
-		end
-		return
-	end
-	local Registry = GCDM.ViewerRegistry
-	local function AfterBlizzardRefresh()
-		if not Skin.LayoutShouldDefer() then Skin.QueuePostBlizzardLayout() end
-	end
-	if Registry and Registry.HookOnce then
-		Registry:HookOnce(viewer, "GCDMRefreshLayoutHooked", "RefreshLayout", AfterBlizzardRefresh)
-	elseif not viewer.GCDMRefreshLayoutHooked then
-		viewer.GCDMRefreshLayoutHooked = true
-		if viewer.RefreshLayout then hooksecurefunc(viewer, "RefreshLayout", AfterBlizzardRefresh) end
-	end
-	if viewer.OnAcquireItemFrame and not viewer.GCDMLayoutAcquireHooked then
-		viewer.GCDMLayoutAcquireHooked = true
-		hooksecurefunc(viewer, "OnAcquireItemFrame", function(_, itemFrame)
-			Skin.LayoutEnsureIconLifecycleHooks(itemFrame)
-		end)
-	end
-end
-
-local function HookAllViewers()
-	local registry = GCDM.ViewerRegistry
-	if not registry then return end
-	local names = GCDM.CONST.MANAGED_VIEWER_NAMES
-	for i = 1, #names do
-		HookViewerRefreshLayout(registry:Get(names[i]))
-	end
-end
-
-GCDM:RegisterRefreshCallback("Skin.Layout", function()
-	HookAllViewers()
-	ApplyLayout()
-end, 35, {
+-- Layout used to run from hooks on the viewers' RefreshLayout and
+-- OnAcquireItemFrame. Both fire inside Blizzard's refresh, which then continues
+-- tainted and errors on its secret cooldown values, so the relayout is queued
+-- from CDMWatch on our own event frame instead.
+GCDM:RegisterRefreshCallback("Skin.Layout", ApplyLayout, 35, {
 	GCDM.CONST.REFRESH.ALL,
 	GCDM.CONST.REFRESH.LAYOUT,
 	GCDM.CONST.REFRESH.STYLE,
 })
+
+GCDM.CDMWatch:Register("Skin.Layout", Skin.QueuePostBlizzardLayout, 0.1)

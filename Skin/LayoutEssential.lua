@@ -30,11 +30,8 @@ function Skin.LayoutBuffIconsCentered(viewer)
 	for i = 1, #raw do
 		local frame = raw[i]
 		if frame then
-			Skin.LayoutEnsureIconLifecycleHooks(frame)
 			if Skin.LayoutIsIconActive(frame) then
 				active[#active + 1] = frame
-			else
-				frame.GCDMAnchor = nil
 			end
 		end
 	end
