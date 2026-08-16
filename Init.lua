@@ -10,7 +10,7 @@ _G.GCDM = GCDM
 
 GCDM.ADDON_NAME = ADDON_NAME
 GCDM.VERSION = "0.1.2"
-GCDM.BUILD = "20260816-c22"
+GCDM.BUILD = "20260816-c23"
 GCDM.LICENSE = "Proprietary — All Rights Reserved"
 
 function GCDM:OnInitialize()

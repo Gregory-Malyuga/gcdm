@@ -171,29 +171,9 @@ powerBarFontSize = {
 			a[k] = v
 		end
 	end
-	-- Always stamp outline values AFTER More merge. A stale PowerBarArgsMore that
-	-- still says `values = OUTLINE_VALUES` (nil global) must not win.
-	a.powerBarTextOutline = {
-		type = "select",
-		name = L["TEXT_OUTLINE"] or "Outline",
-		order = 7.5,
-		values = {
-			NONE = "None",
-			OUTLINE = "Outline",
-			THICKOUTLINE = "Thick",
-			MONOCHROME = "Monochrome",
-		},
-		get = function()
-			local v = db().powerBarTextOutline or "OUTLINE"
-			if v == "" then
-				return "NONE"
-			end
-			return v
-		end,
-		set = function(_, v)
-			db().powerBarTextOutline = (v == "NONE") and "" or v
-			ctx.RefreshSkin()
-		end,
-	}
+	-- Drop outline select from options UI. A stale PowerBarArgsMore with
+	-- `values = OUTLINE_VALUES` (nil) was crashing AceConfig on /gcdm open.
+	-- Skin still reads db.powerBarTextOutline (default OUTLINE).
+	a.powerBarTextOutline = nil
 	return a
 end
