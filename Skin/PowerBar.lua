@@ -62,6 +62,9 @@ local function ApplyPowerBars()
 				h:Hide()
 			end
 			Skin.PowerBarHostHeight = 0
+			if Skin.PlaceBuffBarViewer then
+				Skin.PlaceBuffBarViewer(db)
+			end
 			return
 		end
 		Pixel.Update()

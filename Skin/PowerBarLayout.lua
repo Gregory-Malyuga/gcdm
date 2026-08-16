@@ -58,51 +58,12 @@ function PowerBarLayout.EnsureHost()
 	return host
 end
 
--- Anchoring a Blizzard viewer to our host frame ties its layout to an addon
--- frame, and Blizzard's own handlers for that viewer then run tainted. Place it
--- against UIParent at the host's screen rect instead.
-local function PlaceViewerAtHostRect(viewer, h, lift)
-	local hostScale = h.GetEffectiveScale and h:GetEffectiveScale()
-	local viewerScale = viewer.GetEffectiveScale and viewer:GetEffectiveScale()
-	if not hostScale or not viewerScale or viewerScale == 0 then
-		return false
+-- BuffBarCooldownViewer is placed against Essential from Skin.PlaceBuffBarViewer
+-- (never against GCDM_PowerBarHost — that kept OnUnitAura tainted).
+local function NudgeBuffBarAbovePower(db)
+	if Skin.PlaceBuffBarViewer then
+		Skin.PlaceBuffBarViewer(db)
 	end
-	local left, right, top = h:GetLeft(), h:GetRight(), h:GetTop()
-	if not left or not right or not top then
-		return false
-	end
-	-- SetPoint offsets are read in the anchored frame's own units.
-	local k = hostScale / viewerScale
-	local l, r, t = left * k, right * k, (top * k) + lift
-	local inCombat = InCombatLockdown and InCombatLockdown()
-	local ok = pcall(function()
-		if not inCombat then
-			viewer:ClearAllPoints()
-		end
-		viewer:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l, t)
-		viewer:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", r, t)
-	end)
-	return ok
-end
-
-local function NudgeBuffBarAbovePower(db, h, gap)
-	local registry = GCDM.ViewerRegistry
-	local buffBar = registry and registry:BuffBar()
-	if not buffBar then
-		return
-	end
-	if db.buffBarFollowEssential == false then
-		return
-	end
-	local shownOk, isShown = pcall(buffBar.IsShown, buffBar)
-	if shownOk and not isShown then
-		return
-	end
-	local cfg = db.viewerPos and db.viewerPos.buffBar
-	if cfg and cfg.enabled then
-		return
-	end
-	PlaceViewerAtHostRect(buffBar, h, Pixel.Snap(gap or 1))
 end
 
 local function AnchorHostIndependent(db, h, width, hostH)
@@ -153,7 +114,10 @@ function PowerBarLayout.AnchorHost(db)
 		h:SetFrameLevel(math.max((essential:GetFrameLevel() or 0) + 10, 100))
 		local essW = essential.GetWidth and essential:GetWidth()
 		local minW = MinBarWidth()
-		if type(essW) == "number" and essW >= 40 and essW + 0.5 >= minW then
+		if type(essW) == "number"
+			and not (issecretvalue and issecretvalue(essW))
+			and not (canaccessvalue and not canaccessvalue(essW))
+			and essW >= 40 and essW + 0.5 >= minW then
 			width = essW
 			h:SetSize(width, hostH)
 			h:SetPoint("BOTTOMLEFT", essential, "TOPLEFT", 0, gap)
@@ -163,12 +127,13 @@ function PowerBarLayout.AnchorHost(db)
 			h:SetSize(width, hostH)
 			h:SetPoint("BOTTOM", essential, "TOP", 0, gap)
 		end
-		NudgeBuffBarAbovePower(db, h, 1)
+		Skin.PowerBarHostHeight = hostH + gap
+		NudgeBuffBarAbovePower(db)
 	else
 		h:SetFrameStrata("MEDIUM")
 		h:SetFrameLevel((GCDM.CONST and GCDM.CONST.HOST_FRAME_LEVEL) or 100)
 		local fallbackY = (GCDM.CONST and GCDM.CONST.DEFAULT_INDEPENDENT_BAR_Y) or -100
 		h:SetPoint("CENTER", UIParent, "CENTER", 0, fallbackY)
+		Skin.PowerBarHostHeight = hostH + gap
 	end
-	Skin.PowerBarHostHeight = hostH + gap
 end

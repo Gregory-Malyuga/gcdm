@@ -10,16 +10,38 @@ function Skin.BuffBarResolveStyle(db)
 	return s
 end
 
+local function PlainNumber(value)
+	if type(value) ~= "number" then
+		return nil
+	end
+	if issecretvalue and issecretvalue(value) then
+		return nil
+	end
+	if canaccessvalue and not canaccessvalue(value) then
+		return nil
+	end
+	return value
+end
+
 local function SyncSkinBarValues(frame, bar)
 	local skin = frame.GCDMSkinBar
 	if not skin or not bar then return end
 	local minV, maxV = 0, 1
-	if bar.GetMinMaxValues then minV, maxV = bar:GetMinMaxValues() end
-	if type(minV) ~= "number" then minV = 0 end
-	if type(maxV) ~= "number" then maxV = 1 end
+	if bar.GetMinMaxValues then
+		local ok, a, b = pcall(bar.GetMinMaxValues, bar)
+		if ok then
+			minV = PlainNumber(a) or 0
+			maxV = PlainNumber(b) or 1
+		end
+	end
 	skin:SetMinMaxValues(minV, maxV)
-	local value = (bar.GetValue and bar:GetValue()) or 0
-	if type(value) ~= "number" then value = 0 end
+	local value = 0
+	if bar.GetValue then
+		local ok, v = pcall(bar.GetValue, bar)
+		if ok then
+			value = PlainNumber(v) or 0
+		end
+	end
 	if Skin.SmoothBarSetValue then
 		Skin.SmoothBarSetValue(skin, value, Skin.IsBarSmoothEnabled and Skin.IsBarSmoothEnabled(GCDM:GetDB()))
 	else
@@ -81,7 +103,9 @@ function Skin.ApplyBuffBarSolid(frame, bar, db)
 	HideBlizzardBarArt(bar)
 	local skin = frame.GCDMSkinBar
 	if not skin then
-		skin = CreateFrame("StatusBar", nil, bar)
+		-- Parent to the item frame, never to Blizzard's StatusBar: a child on the
+		-- status bar sits inside the same update path that compares secret durations.
+		skin = CreateFrame("StatusBar", nil, frame)
 		skin:SetFrameLevel(math.max(1, (bar:GetFrameLevel() or 0) - 1))
 		frame.GCDMSkinBar = skin
 		frame.GCDMSkinBarBG = skin:CreateTexture(nil, "BACKGROUND", nil, -1)
@@ -139,10 +163,11 @@ function Skin.ApplyBuffBarOwnedBorder(owner, key, parent, db)
 	local c = db.borderColor or { r = 0, g = 0, b = 0, a = 1 }
 	local border = owner[key]
 	if not border then
-		border = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+		-- Own the border under the item frame, not under Blizzard's StatusBar/Icon.
+		border = CreateFrame("Frame", nil, owner, "BackdropTemplate")
 		owner[key] = border
-	elseif border:GetParent() ~= parent then
-		border:SetParent(parent)
+	elseif border:GetParent() ~= owner then
+		border:SetParent(owner)
 	end
 	if size <= 0 then border:Hide() return end
 	border:SetFrameLevel((parent:GetFrameLevel() or 0) + 5)
