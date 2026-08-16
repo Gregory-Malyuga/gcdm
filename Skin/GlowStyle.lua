@@ -42,14 +42,14 @@ function Glow.ClearLegacyGCDMGlow(frame)
 	if not frame then
 		return
 	end
-	local legacy = frame._ProcGlowGCDM_SpellAlert or frame["_ProcGlowGCDM_SpellAlert"]
+	-- Hide only: clearing the fields would be an insecure write into a CDM item
+	-- frame, and Blizzard reads those frames inside secret cooldown paths.
+	local legacy = frame._ProcGlowGCDM_SpellAlert
 	if legacy and legacy.Hide then
 		legacy:Hide()
 	end
-	frame._ProcGlowGCDM_SpellAlert = nil
 	if frame._ButtonGlow and frame._ButtonGlow.Hide then
 		frame._ButtonGlow:Hide()
-		frame._ButtonGlow = nil
 	end
 	HideRegion(frame.OverlayGlow)
 	HideRegion(frame.overlay)

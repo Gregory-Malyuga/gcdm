@@ -23,6 +23,8 @@ ns.defaults = {
 		debugSkin = false,
 		-- Log Edit Mode release + allow /gcdm editdump (also on when debugSkin).
 		debugEditMode = false,
+		-- [refreshCallbackID] = true stops that module; used to bisect taint.
+		disabledModules = {},
 
 		-- Per-viewer text (Essential / Utility / Buff icons / Buff bars). No global Text tab.
 		textByViewer = {

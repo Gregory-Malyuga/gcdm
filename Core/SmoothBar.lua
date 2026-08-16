@@ -8,6 +8,11 @@ local Skin = GCDM.Skin
 local SPEED = 14
 local EPS = 0.0005
 
+-- Bars can be Blizzard StatusBars; keep our state outside their tables so we
+-- never write into a frame Blizzard reads while handling secret values.
+local targets = setmetatable({}, { __mode = "k" })
+local drivers = setmetatable({}, { __mode = "k" })
+
 local function IsPlainNumber(v)
 	if v == nil then
 		return false
@@ -25,18 +30,20 @@ local function StopSmooth(bar)
 	if not bar then
 		return
 	end
-	bar._gcdmSmoothTarget = nil
-	if bar.GCDMSmoothDriver then
-		bar.GCDMSmoothDriver:SetScript("OnUpdate", nil)
+	targets[bar] = nil
+	local driver = drivers[bar]
+	if driver then
+		driver:SetScript("OnUpdate", nil)
 	end
 end
 
 local function EnsureDriver(bar)
-	if bar.GCDMSmoothDriver then
-		return bar.GCDMSmoothDriver
+	local driver = drivers[bar]
+	if driver then
+		return driver
 	end
-	local driver = CreateFrame("Frame", nil, bar)
-	bar.GCDMSmoothDriver = driver
+	driver = CreateFrame("Frame", nil, bar)
+	drivers[bar] = driver
 	return driver
 end
 
@@ -84,13 +91,13 @@ function Skin.SmoothBarSetValue(bar, value, enabled)
 		return
 	end
 
-	bar._gcdmSmoothTarget = value
+	targets[bar] = value
 	local driver = EnsureDriver(bar)
 	if driver:GetScript("OnUpdate") then
 		return
 	end
 	driver:SetScript("OnUpdate", function(self, elapsed)
-		local target = bar._gcdmSmoothTarget
+		local target = targets[bar]
 		if target == nil then
 			self:SetScript("OnUpdate", nil)
 			return

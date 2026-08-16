@@ -25,6 +25,9 @@ local LOGIC_SUITES = {
 	{ name = "widthformula", fn = function()
 		return Tests.Logic.WidthFormula
 	end },
+	{ name = "cdmcontent", fn = function()
+		return Tests.Logic.CDMContent
+	end },
 }
 
 local BEHAVIOR_SUITES = {
