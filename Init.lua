@@ -49,7 +49,7 @@ function GCDM:OnEnable()
 		end)
 	end
 	self:Refresh()
-	print("|cff3bb273GCDM|r loaded " .. tostring(self.VERSION) .. " build=" .. tostring(self.BUILD))
+	print("|cff3bb273GCDM|r loaded " .. tostring(self.VERSION) .. " build=" .. tostring(self.BUILD) .. " — if Bugsack shows GCDM*Hooked, you still have an old AddOns copy")
 end
 
 function GCDM:OnViewerDataChanged()
