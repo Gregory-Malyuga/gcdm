@@ -41,6 +41,30 @@ local function ApplyTextVisibility(frame, bar, db)
 	if bar and bar.Duration then bar.Duration:SetAlpha(showDuration and 1 or 0) end
 end
 
+-- Visual only: HidePandemicStateFrame re-registers Blizzard's OnUpdate, and doing
+-- that from addon code taints the secret comparisons inside it.
+local function HideBuffBarPandemic(frame)
+	local db = GCDM:GetDB()
+	if not db or db.hidePandemicIndicator == false then return end
+	if frame.PandemicIcon then
+		frame.PandemicIcon:SetAlpha(0)
+		frame.PandemicIcon:Hide()
+	end
+	if frame.ShowPandemicStateFrame and not frame.GCDMPandemicHooked then
+		frame.GCDMPandemicHooked = true
+		hooksecurefunc(frame, "ShowPandemicStateFrame", function(self)
+			local profile = GCDM:GetDB()
+			if not profile or profile.hidePandemicIndicator == false then return end
+			if self.PandemicIcon then
+				self.PandemicIcon:SetAlpha(0)
+				self.PandemicIcon:Hide()
+			end
+		end)
+	end
+end
+
+Skin.HideBuffBarPandemic = HideBuffBarPandemic
+
 local StyleOneBar
 
 local function GuardBarSize(frame, width, height)
@@ -78,6 +102,7 @@ StyleOneBar = function(frame, db, width, height)
 	local bar = frame.Bar
 	if not bar or not width or width < 8 or not height or height < 2 then return end
 	local style = Skin.BuffBarResolveStyle(db)
+	HideBuffBarPandemic(frame)
 	Skin.HideBuffBarPipAndExtras(frame, style)
 	Pixel.Update()
 	GuardBarSize(frame, width, height)
