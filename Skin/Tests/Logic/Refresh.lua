@@ -46,6 +46,28 @@ function ns.Tests.Logic.Refresh(h, ctx)
 		table.concat(log, ",")
 	)
 
+	if addon.SetModuleEnabled then
+		local wasEnabled = addon:IsModuleEnabled(idA)
+		addon:SetModuleEnabled(idA, false)
+		wipe(log)
+		addon:Refresh(addon.CONST.REFRESH.STYLE)
+		h.check(
+			"Refresh skips disabled module",
+			log[1] == "B" and #log == 1,
+			table.concat(log, ",")
+		)
+
+		addon:SetModuleEnabled(idA, true)
+		wipe(log)
+		addon:Refresh(addon.CONST.REFRESH.STYLE)
+		h.check(
+			"Refresh runs module again once enabled",
+			#log == 2,
+			table.concat(log, ",")
+		)
+		addon:SetModuleEnabled(idA, wasEnabled)
+	end
+
 	addon:UnregisterRefreshCallback(idA)
 	addon:UnregisterRefreshCallback(idB)
 	addon:UnregisterRefreshCallback(idC)

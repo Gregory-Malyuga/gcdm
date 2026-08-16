@@ -101,6 +101,52 @@ runTests = {
 		end
 	end,
 },
+modulesHeader = {
+	type = "header",
+	name = L["MODULES"],
+	order = 5,
+},
+modulesHint = {
+	type = "description",
+	name = L["MODULES_DESC"],
+	order = 5.1,
+	fontSize = "medium",
+},
+safeMode = {
+	type = "toggle",
+	name = L["SAFE_MODE"],
+	desc = L["SAFE_MODE_DESC"],
+	order = 5.2,
+	width = "full",
+	get = function()
+		return addon:IsSafeMode()
+	end,
+	set = function(_, value)
+		addon:SetSafeMode(value and true or false)
+		addon:Refresh()
+	end,
+},
+modules = {
+	type = "multiselect",
+	name = L["MODULES_ACTIVE"],
+	desc = L["MODULES_ACTIVE_DESC"],
+	order = 5.3,
+	values = function()
+		local values = {}
+		local ids = addon:GetRefreshModuleIDs()
+		for i = 1, #ids do
+			values[ids[i]] = ids[i]
+		end
+		return values
+	end,
+	get = function(_, key)
+		return addon:IsModuleEnabled(key)
+	end,
+	set = function(_, key, value)
+		addon:SetModuleEnabled(key, value)
+		addon:Refresh()
+	end,
+},
 hidePandemicIndicator = {
 	type = "toggle",
 	name = L["HIDE_PANDEMIC"],

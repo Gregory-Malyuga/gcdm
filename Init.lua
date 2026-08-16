@@ -82,6 +82,63 @@ function GCDM:GetDB()
 	return self.db and self.db.profile
 end
 
+local function ModuleState(addon, id)
+	return addon:IsModuleEnabled(id) and "|cff3bb273on|r" or "|cffff5555off|r"
+end
+
+--- /gcdm modules · /gcdm module <id> [on|off] · /gcdm safe [on|off]
+function GCDM:ModuleCommand(cmd, input)
+	local ids = self:GetRefreshModuleIDs()
+	if cmd == "safe" then
+		local arg = input:match("^%S+%s+(%S+)")
+		local on
+		if arg == "on" then
+			on = true
+		elseif arg == "off" then
+			on = false
+		else
+			on = not self:IsSafeMode()
+		end
+		self:SetSafeMode(on)
+		self:Print((on and "safe mode ON — " or "safe mode OFF — ") .. "/reload to drop hooks already installed")
+		self:Refresh()
+		return
+	end
+
+	local name, state = input:match("^%S+%s+(%S+)%s*(%S*)$")
+	if not name then
+		self:Print("modules (/gcdm module <id> on|off, /gcdm safe):")
+		for i = 1, #ids do
+			self:Print("  " .. ids[i] .. " = " .. ModuleState(self, ids[i]))
+		end
+		return
+	end
+
+	local match
+	for i = 1, #ids do
+		if string.lower(ids[i]) == string.lower(name) then
+			match = ids[i]
+			break
+		end
+	end
+	if not match then
+		self:Print("unknown module: " .. name)
+		return
+	end
+
+	local enabled
+	if state == "on" then
+		enabled = true
+	elseif state == "off" then
+		enabled = false
+	else
+		enabled = not self:IsModuleEnabled(match)
+	end
+	self:SetModuleEnabled(match, enabled)
+	self:Print(match .. " = " .. ModuleState(self, match) .. " (/reload to drop hooks already installed)")
+	self:Refresh()
+end
+
 function GCDM:OpenOptions()
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 	local open = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[ADDON_NAME]
@@ -114,6 +171,10 @@ function GCDM:SlashCommand(input)
 			self.Skin.DumpPressOverlayDebug()
 		end
 		self:Refresh(self.CONST.REFRESH.STYLE)
+		return
+	end
+	if cmd == "module" or cmd == "modules" or cmd == "safe" then
+		self:ModuleCommand(cmd, input)
 		return
 	end
 	if cmd == "debug" then
